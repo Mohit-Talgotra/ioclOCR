@@ -1,10 +1,8 @@
 import os
 import json
 import cv2
-import numpy as np
 import pytesseract
 from pdf2image import convert_from_path
-from PIL import Image
 import easyocr
 import pix2text
 
@@ -242,4 +240,4 @@ def run_improved_ocr_pipeline(pdf_path, output_json):
 
 
 if __name__ == "__main__":
-    run_improved_ocr_pipeline("Adobe Scan 13 May 2025.pdf", "improved_ocr_results.json")
+    run_improved_ocr_pipeline("/home/talgotram/Repos/ioclOCR/Adobe Scan 13 May 2025.pdf", "improved_ocr_results.json")

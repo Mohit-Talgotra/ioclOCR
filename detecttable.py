@@ -1,6 +1,5 @@
 import cv2
 import os
-import numpy as np
 from pdf2image import convert_from_path
 
 def pdf_to_images(pdf_path, output_dir, dpi=300):
