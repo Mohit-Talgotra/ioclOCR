@@ -1,0 +1,15 @@
+cv2
+pandas
+paddleocr
+paddlepaddle
+transformers
+Pillow
+pix2text
+google-generativeai
+python-dotenv
+pdf2image
+opencv-python
+pytesseract
+easyocr
+openpyxl
+requests
