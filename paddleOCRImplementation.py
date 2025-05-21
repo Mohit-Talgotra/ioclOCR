@@ -1,6 +1,8 @@
+
 import cv2
 import pandas as pd
 import os
+import json
 from paddleocr import PaddleOCR
 
 def simple_table_extraction(image_path, output_dir='./output'):
@@ -80,10 +82,50 @@ def simple_table_extraction(image_path, output_dir='./output'):
             df.to_csv(csv_path, index=False)
             print(f"Table saved to CSV: {csv_path}")
 
+            txt_path = os.path.join(output_dir, "extracted_table.txt")
+            with open(txt_path, 'w', encoding='utf-8') as txt_file:
+                if isinstance(df, pd.DataFrame) and not df.empty:
+                    if df.columns is not None and not all(pd.isna(df.columns)):
+                        txt_file.write("\t".join(str(col) for col in df.columns) + "\n")
+
+                    txt_file.write("-" * 80 + "\n")
+                    
+                    for _, row in df.iterrows():
+                        txt_file.write("\t".join(str(cell) for cell in row) + "\n")
+                else:
+                    txt_file.write("No valid table data to write")
+            
+            print(f"Table saved to TXT: {txt_path}")
+
+            json_path = os.path.join(output_dir, "extracted_table.json")
+
+            json_data = {
+                "table_data": {
+                    "headers": df.columns.tolist() if isinstance(df, pd.DataFrame) else [],
+                    "rows": df.values.tolist() if isinstance(df, pd.DataFrame) else []
+                },
+                "raw_data": {
+                    "text_blocks": [{
+                        "text": item["text"],
+                        "confidence": float(item["confidence"]),
+                        "position": {
+                            "center_x": float(item["center_x"]),
+                            "center_y": float(item["center_y"]),
+                            "box": [[float(p[0]), float(p[1])] for p in item["box"]]
+                        }
+                    } for item in text_info]
+                }
+            }
+            
+            with open(json_path, 'w', encoding='utf-8') as json_file:
+                json.dump(json_data, json_file, indent=2, ensure_ascii=False)
+            
+            print(f"Table saved to JSON: {json_path}")
+
             print("\nExtracted table content:")
             print(df)
             
-            return df
+            return df, json_data
         else:
             print("Not enough data to form a table")
             return None
