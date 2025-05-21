@@ -75,7 +75,7 @@ def improved_table_extraction(image_path, output_dir='./output'):
         
         heights = [item['height'] for item in text_info]
         avg_height = sum(heights) / len(heights)
-        row_height_threshold = avg_height * 0.8  # Adjust based on text density
+        row_height_threshold = avg_height * 0.8
         
         for i in range(1, len(text_info)):
             current_block = text_info[i]
@@ -102,7 +102,7 @@ def improved_table_extraction(image_path, output_dir='./output'):
             gaps = [(sorted_x[i+1] - sorted_x[i], i) for i in range(len(sorted_x)-1)]
             gaps.sort(reverse=True)
             
-            num_columns = min(7, len(gaps) // 3 + 2)  # Estimate number of columns
+            num_columns = min(7, len(gaps) // 3 + 2)
             
             separators = sorted([sorted_x[gap[1]] for gap in gaps[:num_columns-1]])
             
@@ -264,8 +264,8 @@ def improved_table_extraction(image_path, output_dir='./output'):
         return None
 
 def main():
-    image_path = "/home/talgotram/Repos/ioclOCR/output/images/page_1.jpg"
-    output_dir = "./table_output"
+    image_path = "/home/talgotram/Repos/ioclOCR/output/images/page_2.jpg"
+    output_dir = "/home/talgotram/Repos/ioclOCR/output/table_output1"
     
     try:
         improved_table_extraction(image_path, output_dir)
