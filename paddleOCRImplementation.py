@@ -1,4 +1,3 @@
-
 import cv2
 import pandas as pd
 import os
@@ -11,7 +10,7 @@ def simple_table_extraction(image_path, output_dir='./output'):
     ocr = PaddleOCR(
         use_angle_cls=True, 
         lang='en',
-        use_gpu=False,
+        use_gpu=True,
         show_log=False,
         draw_img_save_dir=None,
         vis_font_path=None
@@ -75,7 +74,7 @@ def simple_table_extraction(image_path, output_dir='./output'):
         if len(padded_data) > 1:
             try:
                 df = pd.DataFrame(padded_data[1:], columns=padded_data[0])
-            except:
+            except Exception:
                 df = pd.DataFrame(padded_data)
 
             csv_path = os.path.join(output_dir, "extracted_table.csv")
@@ -135,7 +134,7 @@ def simple_table_extraction(image_path, output_dir='./output'):
         return None
 
 def main():
-    image_path = "/home/talgotram/Repos/ioclOCR/extracted_images/page_1.png"
+    image_path = "/home/talgotram/Repos/ioclOCR/output/images/page_1.jpg"
     output_dir = "./table_output"
     
     try:
