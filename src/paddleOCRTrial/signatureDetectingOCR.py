@@ -8,6 +8,11 @@ from paddleocr import PaddleOCR
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
+import requests
+import time
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def detect_signature_patterns(text_blocks, img_shape):
     signature_indicators = []
@@ -97,7 +102,286 @@ def analyze_signature_regions(img, text_blocks):
     
     return signature_regions
 
-def improved_table_extraction(image_path, output_dir='./output'):
+class MistralTableEnhancer:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.base_url = "https://api.mistral.ai/v1/chat/completions"
+        self.headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+    
+    def enhance_table_structure(self, df, signature_indices=None, max_retries=3):
+        """
+        Use mistral API to analyze and improve table structure
+        """
+        for attempt in range(max_retries):
+            try:
+                # Prepare the table data for Mistral
+                table_preview = df.head(10).to_string(index=False)
+                
+                # Get more comprehensive table data
+                table_preview = df.to_string(index=True, max_rows=15)
+                sample_data = []
+                for i, row in df.head(10).iterrows():
+                    sample_data.append([str(cell).strip() for cell in row.values])
+                
+                prompt = f"""
+                    You are a data structure expert. Analyze this OCR-extracted table and improve its organization.
+
+                    CURRENT TABLE STRUCTURE:
+                    Headers: {list(df.columns)}
+                    Number of columns: {len(df.columns)}
+                    Number of rows: {len(df)}
+
+                    RAW TABLE DATA:
+                    {table_preview}
+
+                    SAMPLE ROWS (first 10):
+                    {sample_data}
+
+                    ANALYSIS REQUIREMENTS:
+                    1. Look at the actual data content in each column to determine what it represents
+                    2. Identify if generic headers like "Column 1", "Column 2" should be replaced with meaningful names
+                    3. Reorganize the data such that each column should have data which only belongs to that column
+                    4. Ensure ALL {len(df.columns)} columns get proper headers - do not skip any
+                    5. Look for common table patterns: ID/Serial numbers, Names, Dates, Amounts, Status, etc.
+                    - Extract as a nested array structure with headers
+                    - Maintain column headers and row labels
+                    - Preserve all cell values with their exact formatting
+                    - Handle merged cells appropriately
+
+                    STRICT RULES:
+                    - You MUST provide {len(df.columns)} or more improved headers
+                    - If you can't determine a column's purpose, use descriptive names like "Field_1", "Data_2", etc.
+                    - Headers should be concise but descriptive
+                    - No special characters in headers, use underscores instead of spaces
+                    - Check if data appears misaligned (content that should be in one column appears in another)
+                    - Data SHOULD NOT be in the incorrect column, check multiple times before giving final output
+
+                    Return ONLY this JSON structure:
+                    OUTPUT FORMAT:
+                    Return ONLY valid JSON with this structure:
+                    {{
+                        "document_type": "detected document type (e.g., invoice, form, report)",
+                        "page_metadata": {{
+                            "page_number": "detected page number if present",
+                            "header": "header text if present",
+                            "footer": "footer text if present"
+                        }},
+                        "sections": [
+                            {{
+                                "section_type": "text|table|form|chart",
+                                "section_title": "section heading if present",
+                                "content": "appropriate content structure based on section type"
+                            }}
+                        ],
+                        "tables": [
+                            {{
+                                "table_title": "title if present",
+                                "headers": ["header1", "header2", ...],
+                                "data": [
+                                    ["row1col1", "row1col2", ...],
+                                    ["row2col1", "row2col2", ...]
+                                ]
+                            }}
+                        ],
+                        "key_value_pairs": {{
+                            "key1": "value1",
+                            "key2": "value2"
+                        }}
+                    }}
+
+                    Focus on practical improvements that make the table more professional and readable.
+                    Make sure to use proper JSON escaping for special characters and ensure the output is valid JSON.
+                    If certain elements don't exist, include them as empty arrays or objects rather than omitting them."""
+
+                payload = {
+                    "messages": [
+                        {"role": "user", "content": prompt}
+                    ],
+                    "model": "mistral-large-latest",
+                    "stream": False,
+                    "temperature": 0.1,
+                    "response_format": {
+                        "type": "text",
+                        "json_schema": {{
+                            "document_type": "detected document type (e.g., invoice, form, report)",
+                            "page_metadata": {{
+                                "page_number": "detected page number if present",
+                                "header": "header text if present",
+                                "footer": "footer text if present"
+                            }},
+                            "sections": [
+                                {{
+                                    "section_type": "text|table|form|chart",
+                                    "section_title": "section heading if present",
+                                    "content": "appropriate content structure based on section type"
+                                }}
+                            ],
+                            "tables": [
+                                {{
+                                    "table_title": "title if present",
+                                    "headers": ["header1", "header2", ...],
+                                    "data": [
+                                        ["row1col1", "row1col2", ...],
+                                        ["row2col1", "row2col2", ...]
+                                    ]
+                                }}
+                            ],
+                            "key_value_pairs": {{
+                                "key1": "value1",
+                                "key2": "value2"
+                            }}
+                        }}
+                    },
+                }
+
+                response = requests.post(
+                    self.base_url,
+                    headers=self.headers,
+                    json=payload,
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    mistral_response = result['choices']
+                    print(mistral_response)
+                    
+                    return
+                    # Try to extract JSON from the response
+                    try:
+                        # Look for JSON block in the response
+                        import re
+                        json_match = re.search(r'```json\n(.*?)\n```', mistral_response, re.DOTALL)
+                        if json_match:
+                            json_str = json_match.group(1)
+                        else:
+                            # Try to find JSON without code blocks
+                            json_match = re.search(r'\{.*\}', mistral_response, re.DOTALL)
+                            if json_match:
+                                json_str = json_match.group(0)
+                            else:
+                                raise ValueError("No JSON found in response")
+                        
+                        enhancement_data = json.loads(json_str)
+                        return self.apply_enhancements(df, enhancement_data, signature_indices)
+                    
+                    except (json.JSONDecodeError, ValueError) as e:
+                        print(f"Failed to parse JSON from mistral response: {e}")
+                        print(f"Raw response: {mistral_response}")
+                        return df, {"analysis": "Failed to parse mistral response"}
+                
+                else:
+                    print(f"mistral API error: {response.status_code} - {response.text}")
+                    if attempt < max_retries - 1:
+                        time.sleep(2 ** attempt)  # Exponential backoff
+                        continue
+                    else:
+                        return df, {"analysis": "Failed to get response from mistral API"}
+
+            except requests.exceptions.RequestException as e:
+                print(f"Request failed (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                else:
+                    return df, {"analysis": f"Network error: {str(e)}"}
+        
+        return df, {"analysis": "All retry attempts failed"}
+    
+    def apply_enhancements(self, df, enhancement_data, signature_indices):
+        """
+        Apply the enhancements suggested by mistral
+        """
+        try:
+            enhanced_df = df.copy()
+            
+            # Apply column renaming
+            if 'improved_headers' in enhancement_data:
+                new_headers = enhancement_data['improved_headers'][:len(df.columns)]
+                if len(new_headers) == len(df.columns):
+                    enhanced_df.columns = new_headers
+            
+            elif 'column_mapping' in enhancement_data:
+                enhanced_df = enhanced_df.rename(columns=enhancement_data['column_mapping'])
+            
+            # Apply data corrections
+            if 'data_corrections' in enhancement_data:
+                for correction in enhancement_data['data_corrections']:
+                    try:
+                        row_idx = correction.get('row_index')
+                        column = correction.get('column')
+                        value = correction.get('corrected_value')
+                        
+                        if row_idx is not None and column in enhanced_df.columns and row_idx < len(enhanced_df):
+                            enhanced_df.at[row_idx, column] = value
+                    except Exception as e:
+                        print(f"Failed to apply correction: {e}")
+            
+            return enhanced_df, enhancement_data
+            
+        except Exception as e:
+            print(f"Error applying enhancements: {e}")
+            return df, enhancement_data
+
+# Function to add mistral enhancement to your existing workflow
+def enhance_with_mistral(df, signature_indices, mistral_api_key, output_dir):
+    """
+    Enhance the extracted table using Mistral API
+    """
+    if not mistral_api_key:
+        print("No mistral API key provided, skipping enhancement")
+        return df, {}
+    
+    print("Enhancing table structure with mistral API...")
+    
+    mistral_enhancer = MistralTableEnhancer(mistral_api_key)
+    enhanced_df, enhancement_info = mistral_enhancer.enhance_table_structure(df, signature_indices)
+    
+    # Save the enhanced table
+    if not enhanced_df.equals(df):
+        print("mistral suggested improvements applied!")
+        
+        # Save enhanced versions
+        enhanced_csv_path = os.path.join(output_dir, "enhanced_table.csv")
+        enhanced_df.to_csv(enhanced_csv_path, index=False)
+        print(f"Enhanced table saved to: {enhanced_csv_path}")
+        
+        enhanced_excel_path = os.path.join(output_dir, "enhanced_table.xlsx")
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Enhanced Table"
+        
+        green_fill = PatternFill(start_color="90EE90", end_color="90EE90", fill_type="solid")
+        
+        for r in dataframe_to_rows(enhanced_df, index=False, header=True):
+            ws.append(r)
+        
+        # Highlight signature rows
+        for sig_idx in signature_indices:
+            excel_row = sig_idx + 2
+            for col in range(1, len(enhanced_df.columns) + 1):
+                ws.cell(row=excel_row, column=col).fill = green_fill
+        
+        wb.save(enhanced_excel_path)
+        print(f"Enhanced Excel saved to: {enhanced_excel_path}")
+        
+        # Save enhancement analysis
+        enhancement_path = os.path.join(output_dir, "mistral_analysis.json")
+        with open(enhancement_path, 'w', encoding='utf-8') as f:
+            json.dump(enhancement_info, f, indent=2, ensure_ascii=False)
+        print(f"Mistral analysis saved to: {enhancement_path}")
+        
+        print(f"\nMistral Analysis: {enhancement_info.get('analysis', 'No analysis provided')}")
+        
+    else:
+        print("No improvements suggested by Mistral")
+    
+    return enhanced_df, enhancement_info
+
+def improved_table_extraction(image_path, mistral_api_key, output_dir='./output'):
     os.makedirs(output_dir, exist_ok=True)
 
     ocr = PaddleOCR(
@@ -412,12 +696,12 @@ def improved_table_extraction(image_path, output_dir='./output'):
         print(f"Table saved to JSON: {json_path}")
 
         print("\nExtracted table content:")
-        print(cleaned_df)
-        
-        if cleaned_signature_indices:
-            print(f"\nRows with detected signatures (highlighted in green in Excel): {cleaned_signature_indices}")
-        
-        return cleaned_df, json_data
+        #print(cleaned_df)
+
+        api_key = mistral_api_key
+        enhanced_df, mistral_analysis = enhance_with_mistral(cleaned_df, cleaned_signature_indices, api_key, output_dir)
+
+        return enhanced_df, json_data
     
     except Exception as e:
         print(f"Error: {str(e)}")
@@ -429,8 +713,10 @@ def main():
     image_path = "/home/talgotram/Repos/ioclOCR/input/images/page_1.jpg"
     output_dir = "/home/talgotram/Repos/ioclOCR/output/table_output_1"
     
+    mistral_api_key = os.getenv('MISTRAL_API_KEY')
+
     try:
-        improved_table_extraction(image_path, output_dir)
+        improved_table_extraction(image_path, mistral_api_key, output_dir)
     except Exception as e:
         print(f"Error: {str(e)}")
 
