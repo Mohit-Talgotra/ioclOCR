@@ -12,14 +12,12 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 def detect_signature_patterns(text_blocks, img_shape):
     signature_indicators = []
     
-    # Text-based signature indicators
     signature_keywords = [
         'signature', 'signed', 'sign', 'name', 'initial', 'initials',
         'authorized', 'approved', 'verified', 'confirm', 'acknowledge',
         'witness', 'attest', 'certify', 'endorse'
     ]
     
-    # Pattern matching for signature-like text
     signature_patterns = [
         r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',  # Full names (e.g., "John Smith")
         r'\b[A-Z]\.[A-Z]\. [A-Z][a-z]+\b',  # Initials + surname (e.g., "J.S. Smith")
@@ -34,32 +32,25 @@ def detect_signature_patterns(text_blocks, img_shape):
         is_signature = False
         confidence_score = 0
         
-        # Check for signature keywords
         if any(keyword in text.lower() for keyword in signature_keywords):
             is_signature = True
             confidence_score += 0.4
         
-        # Check for signature patterns
         for pattern in signature_patterns:
             if re.search(pattern, text):
                 is_signature = True
                 confidence_score += 0.3
         
-        # Check for visual characteristics that might indicate signatures
-        # Low confidence text (handwritten text often has lower OCR confidence)
         if block['confidence'] < 0.7:
             confidence_score += 0.2
         
-        # Check for unusual aspect ratios (signatures often have different proportions)
         aspect_ratio = block['width'] / block['height'] if block['height'] > 0 else 0
         if aspect_ratio > 3 or aspect_ratio < 0.5:
             confidence_score += 0.1
         
-        # Check for isolated text blocks (signatures are often standalone)
         if len(text.split()) <= 3 and len(text) > 2:
             confidence_score += 0.2
         
-        # Special patterns for common signature formats
         if re.match(r'^[A-Z][a-z]*\.?\s*[A-Z][a-z]*\.?$', text):  # Name patterns
             confidence_score += 0.3
         
@@ -75,15 +66,12 @@ def detect_signature_patterns(text_blocks, img_shape):
 def analyze_signature_regions(img, text_blocks):
     signature_regions = []
     
-    # Convert to grayscale for analysis
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    # Look for regions with high variance (potentially handwritten content)
     for block in text_blocks:
         x1, y1 = int(block['min_x']), int(block['min_y'])
         x2, y2 = int(block['max_x']), int(block['max_y'])
         
-        # Ensure coordinates are within image bounds
         x1 = max(0, x1 - 10)
         y1 = max(0, y1 - 10)
         x2 = min(gray.shape[1], x2 + 10)
@@ -93,14 +81,11 @@ def analyze_signature_regions(img, text_blocks):
             region = gray[y1:y2, x1:x2]
             
             if region.size > 0:
-                # Calculate variance (signatures often have more irregular patterns)
                 variance = np.var(region)
                 
-                # Calculate edge density (signatures often have more edges)
                 edges = cv2.Canny(region, 50, 150)
                 edge_density = np.sum(edges > 0) / edges.size
                 
-                # Combine metrics for signature likelihood
                 signature_score = (variance / 1000) + (edge_density * 2)
                 
                 if signature_score > 0.3:  # Threshold for signature detection
@@ -176,7 +161,6 @@ def improved_table_extraction(image_path, output_dir='./output'):
             print("No valid text blocks detected")
             return None
 
-        # Detect signatures before processing table structure
         print("Detecting signatures...")
         text_signatures = detect_signature_patterns(text_info, img.shape)
         visual_signatures = analyze_signature_regions(img, text_info)
@@ -256,7 +240,6 @@ def improved_table_extraction(image_path, output_dir='./output'):
                 else:
                     row_data[closest_col] = block['text']
                 
-                # Check if this block contains a signature
                 if block['text'] in signature_blocks:
                     row_has_signature = True
             
@@ -282,7 +265,6 @@ def improved_table_extraction(image_path, output_dir='./output'):
         
         if header_row_idx >= 0:
             data_rows = table_matrix[header_row_idx+1:]
-            # Adjust signature row indices to account for removed header
             signature_row_indices = [idx - (header_row_idx + 1) for idx in signature_row_indices if idx > header_row_idx]
         else:
             data_rows = table_matrix
@@ -302,7 +284,6 @@ def improved_table_extraction(image_path, output_dir='./output'):
                 
             normalized_rows.append(row)
             
-            # Track signature rows in the final normalized data
             if row_idx in signature_row_indices:
                 final_signature_indices.append(len(normalized_rows) - 1)
 
@@ -445,8 +426,8 @@ def improved_table_extraction(image_path, output_dir='./output'):
         return None
 
 def main():
-    image_path = "/home/talgotram/Repos/ioclOCR/input/images/page_3.jpg"
-    output_dir = "/home/talgotram/Repos/ioclOCR/output/table_output_3"
+    image_path = "/home/talgotram/Repos/ioclOCR/input/images/page_1.jpg"
+    output_dir = "/home/talgotram/Repos/ioclOCR/output/table_output_1"
     
     try:
         improved_table_extraction(image_path, output_dir)
