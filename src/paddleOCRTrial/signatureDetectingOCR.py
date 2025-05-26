@@ -19,12 +19,12 @@ def detect_signature_patterns(text_blocks, img_shape):
     ]
     
     signature_patterns = [
-        r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',  # Full names (e.g., "John Smith")
-        r'\b[A-Z]\.[A-Z]\. [A-Z][a-z]+\b',  # Initials + surname (e.g., "J.S. Smith")
-        r'\b[A-Z]{2,4}\b',  # Initials only (e.g., "JS", "ABC")
-        r'\/s\/ .+',  # Electronic signature format
-        r'_+\s*$',  # Underscores (signature lines)
-        r'-{3,}',  # Dashes (signature lines)
+        r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',
+        r'\b[A-Z]\.[A-Z]\. [A-Z][a-z]+\b',
+        r'\b[A-Z]{2,4}\b',
+        r'\/s\/ .+',
+        r'_+\s*$',
+        r'-{3,}',
     ]
     
     for block in text_blocks:
