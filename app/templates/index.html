@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Excel Converter - Professional Document Processing</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --light-blue: #dbeafe;
+            --primary-orange: #ea580c;
+            --secondary-orange: #fb923c;
+            --light-orange: #fed7aa;
+            --dark-gray: #1f2937;
+            --medium-gray: #6b7280;
+            --light-gray: #f8fafc;
+            --white: #ffffff;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--light-blue) 0%, var(--light-orange) 100%);
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%) !important;
+            box-shadow: 0 4px 20px rgba(30, 58, 138, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--white) !important;
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 50%, var(--primary-orange) 100%);
+            color: var(--white);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-icon {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .main-card {
+            background: var(--white);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            margin-top: -100px;
+            position: relative;
+            z-index: 3;
+        }
+
+        .card-header-custom {
+            background: linear-gradient(135deg, var(--light-blue) 0%, var(--light-orange) 100%);
+            border-radius: 20px 20px 0 0;
+            padding: 2rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .upload-area {
+            border: 3px dashed var(--secondary-blue);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            text-align: center;
+            margin: 2rem 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(251, 146, 60, 0.05) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.6s;
+        }
+
+        .upload-area:hover::before {
+            left: 100%;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-orange);
+            background: linear-gradient(135deg, rgba(234, 88, 12, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(234, 88, 12, 0.15);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--success);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            background: linear-gradient(135deg, var(--secondary-blue) 0%, var(--primary-orange) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+
+        .btn-primary-custom {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+        }
+
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(30, 58, 138, 0.4);
+            background: linear-gradient(135deg, var(--secondary-blue) 0%, var(--primary-blue) 100%);
+        }
+
+        .btn-success-custom {
+            background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-weight: 600;
+            color: var(--white);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        .progress-custom {
+            height: 12px;
+            border-radius: 10px;
+            background: #e5e7eb;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-bar-custom {
+            background: linear-gradient(135deg, var(--primary-orange) 0%, var(--secondary-orange) 100%);
+            transition: width 0.6s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar-custom::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background-image: linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.2) 25%,
+                transparent 25%,
+                transparent 50%,
+                rgba(255, 255, 255, 0.2) 50%,
+                rgba(255, 255, 255, 0.2) 75%,
+                transparent 75%,
+                transparent
+            );
+            background-size: 20px 20px;
+            animation: move 1s linear infinite;
+        }
+
+        @keyframes move {
+            0% { background-position-x: 0; }
+            100% { background-position-x: 20px; }
+        }
+
+        .features-section {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 50%, var(--primary-orange) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .features-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="20" cy="80" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="80" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="50" r="2" fill="rgba(255,255,255,0.1)"/></svg>');
+            opacity: 0.4;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--secondary-orange) 0%, var(--primary-orange) 100%);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .feature-icon {
+            background: linear-gradient(135deg, var(--secondary-orange) 0%, var(--primary-orange) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .alert-custom {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .alert-success-custom {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-left: 4px solid var(--success);
+        }
+
+        .alert-danger-custom {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
+            border-left: 4px solid var(--danger);
+        }
+
+        .alert-info-custom {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+            border-left: 4px solid var(--secondary-blue);
+        }
+
+        .footer {
+            background: linear-gradient(135deg, var(--dark-gray) 0%, #111827 100%);
+            position: relative;
+        }
+
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary-orange), transparent);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .selected-file {
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        .file-info {
+            background: linear-gradient(135deg, var(--light-blue) 0%, var(--light-orange) 100%);
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .hero-section {
+                padding: 3rem 0;
+            }
+            
+            .main-card {
+                margin-top: -50px;
+            }
+            
+            .upload-area {
+                padding: 2rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-file-excel me-2"></i>
+                PDF to Excel Converter
+            </a>
+        </div>
+    </nav>
+
+    <div class="hero-section py-5">
+        <div class="container">
+            <div class="row align-items-center hero-content">
+                <div class="col-lg-6 mb-4 mb-lg-0">
+                    <h1 class="display-4 fw-bold mb-4 animate-fade-in">Convert PDF to Excel</h1>
+                    <p class="lead mb-4 animate-fade-in" style="animation-delay: 0.2s;">Transform your PDF documents into structured Excel spreadsheets with enterprise-grade AI-powered extraction technology</p>
+                    <div class="d-flex align-items-center animate-fade-in" style="animation-delay: 0.4s;">
+                        <i class="fas fa-shield-check me-2 text-warning"></i>
+                        <span>Secure • Fast • Accurate</span>
+                    </div>
+                </div>
+                <div class="col-lg-6 text-center">
+                    <div class="hero-icon animate-fade-in" style="animation-delay: 0.6s;">
+                        <i class="fas fa-exchange-alt fa-5x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container my-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="main-card">
+                    <div class="card-header-custom">
+                        <h2 class="text-center mb-0 fw-bold text-dark">Upload Your PDF Document</h2>
+                        <p class="text-center mb-0 mt-2 text-muted">Professional document processing with AI intelligence</p>
+                    </div>
+                    <div class="card-body p-5">
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                                <div class="upload-content">
+                                    <i class="fas fa-cloud-upload-alt fa-4x upload-icon mb-3"></i>
+                                    <h4 class="fw-bold text-dark mb-2">Click to select or drag and drop</h4>
+                                    <p class="text-muted mb-2">Upload your PDF file for conversion</p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Maximum file size: 50MB • Supported format: PDF
+                                    </small>
+                                </div>
+                                <input type="file" id="fileInput" name="file" accept=".pdf" style="display: none;">
+                            </div>
+                            
+                            <div class="selected-file" id="selectedFile" style="display: none;">
+                                <div class="alert alert-info-custom alert-custom file-info">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-file-pdf me-3 text-danger fs-4"></i>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1 fw-bold">Selected File</h6>
+                                            <span id="fileName" class="text-muted"></span>
+                                        </div>
+                                        <button type="button" class="btn-close" onclick="clearFile()"></button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-center mt-4">
+                                <button type="submit" class="btn btn-primary-custom btn-lg" id="uploadBtn" disabled>
+                                    <i class="fas fa-magic me-2"></i>
+                                    Convert to Excel
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="progress-container mt-5" id="progressContainer" style="display: none;">
+                            <div class="text-center mb-4">
+                                <h5 class="fw-bold text-dark">Processing Your Document</h5>
+                                <p class="text-muted">AI is analyzing and extracting data from your PDF</p>
+                            </div>
+                            <div class="progress progress-custom mb-3">
+                                <div class="progress-bar progress-bar-custom" id="progressBar" style="width: 0%"></div>
+                            </div>
+                            <p class="text-center text-muted" id="progressMessage">Initializing...</p>
+                        </div>
+
+                        <div class="result-container mt-5" id="resultContainer" style="display: none;">
+                            <div class="alert alert-success-custom alert-custom">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-check-circle me-3 text-success fs-3"></i>
+                                    <div class="flex-grow-1">
+                                        <h5 class="fw-bold mb-2 text-success">Conversion Completed Successfully!</h5>
+                                        <p class="mb-3 text-muted">Your PDF has been transformed into a structured Excel spreadsheet with preserved formatting and data integrity.</p>
+                                        <a href="#" class="btn btn-success-custom" id="downloadBtn">
+                                            <i class="fas fa-download me-2"></i>
+                                            Download Excel File
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Error Section -->
+                        <div class="error-container mt-5" id="errorContainer" style="display: none;">
+                            <div class="alert alert-danger-custom alert-custom">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-exclamation-triangle me-3 text-danger fs-3"></i>
+                                    <div class="flex-grow-1">
+                                        <h5 class="fw-bold mb-2 text-danger">Processing Error</h5>
+                                        <p id="errorMessage" class="mb-3 text-muted">An error occurred during processing.</p>
+                                        <button class="btn btn-outline-danger" onclick="resetForm()">
+                                            <i class="fas fa-redo me-2"></i>
+                                            Try Again
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="features-section py-5 text-white">
+        <div class="container position-relative">
+            <div class="row">
+                <div class="col-12 text-center mb-5">
+                    <h2 class="fw-bold display-5 mb-3">Why Choose Our PDF to Excel Converter?</h2>
+                    <p class="lead">Enterprise-grade AI technology for professional document processing</p>
+                </div>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card card h-100">
+                        <div class="card-body text-center p-4">
+                            <i class="fas fa-brain fa-3x feature-icon mb-3"></i>
+                            <h5 class="fw-bold mb-3">AI-Powered Intelligence</h5>
+                            <p class="text-light">Advanced Gemini AI technology understands complex document structures and extracts data with superior accuracy and context awareness.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card card h-100">
+                        <div class="card-body text-center p-4">
+                            <i class="fas fa-table fa-3x feature-icon mb-3"></i>
+                            <h5 class="fw-bold mb-3">Structure Preservation</h5>
+                            <p class="text-light">Maintains original document hierarchy, tables, forms, and formatting while optimizing for Excel compatibility and usability.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card card h-100">
+                        <div class="card-body text-center p-4">
+                            <i class="fas fa-shield-alt fa-3x feature-icon mb-3"></i>
+                            <h5 class="fw-bold mb-3">Enterprise Security</h5>
+                            <p class="text-light">Bank-level encryption during processing with automatic file deletion ensures your sensitive documents remain completely secure.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer text-light py-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <p class="mb-0">&copy; 2025 PDF to Excel Converter. All rights reserved.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <small class="text-muted">Powered by AI • Built for Professionals</small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentJobId = null;
+        let statusInterval = null;
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            handleFileSelection(e.target.files[0]);
+        });
+
+        const uploadArea = document.querySelector('.upload-area');
+        
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelection(files[0]);
+            }
+        });
+
+        function handleFileSelection(file) {
+            if (file && file.type === 'application/pdf') {
+                const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+                document.getElementById('fileName').textContent = `${file.name} (${fileSize} MB)`;
+                document.getElementById('selectedFile').style.display = 'block';
+                document.getElementById('uploadBtn').disabled = false;
+            } else {
+                showAlert('Please select a valid PDF file.', 'warning');
+            }
+        }
+
+        function clearFile() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('selectedFile').style.display = 'none';
+            document.getElementById('uploadBtn').disabled = true;
+        }
+
+        function resetForm() {
+            clearFile();
+            document.getElementById('progressContainer').style.display = 'none';
+            document.getElementById('resultContainer').style.display = 'none';
+            document.getElementById('errorContainer').style.display = 'none';
+            if (statusInterval) {
+                clearInterval(statusInterval);
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 5000);
+        }
+
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('fileInput');
+            
+            if (!fileInput.files[0]) {
+                showAlert('Please select a file first.', 'warning');
+                return;
+            }
+
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                document.getElementById('progressContainer').style.display = 'block';
+                document.getElementById('uploadBtn').disabled = true;
+
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    currentJobId = result.job_id;
+                    startStatusPolling();
+                } else {
+                    showError(result.error || 'Upload failed');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            }
+        });
+
+        function startStatusPolling() {
+            statusInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/status/${currentJobId}`);
+                    const status = await response.json();
+
+                    if (response.ok) {
+                        updateProgress(status);
+                        
+                        if (status.status === 'completed') {
+                            clearInterval(statusInterval);
+                            showSuccess(status.download_url);
+                        } else if (status.status === 'error') {
+                            clearInterval(statusInterval);
+                            showError(status.error || 'Processing failed');
+                        }
+                    } else {
+                        clearInterval(statusInterval);
+                        showError(status.error || 'Status check failed');
+                    }
+                } catch (error) {
+                    clearInterval(statusInterval);
+                    showError('Network error: ' + error.message);
+                }
+            }, 2000);
+        }
+
+        function updateProgress(status) {
+            const progressBar = document.getElementById('progressBar');
+            const progressMessage = document.getElementById('progressMessage');
+            
+            progressBar.style.width = status.progress + '%';
+            progressMessage.textContent = status.message;
+        }
+
+        function showSuccess(downloadUrl) {
+            document.getElementById('progressContainer').style.display = 'none';
+            document.getElementById('resultContainer').style.display = 'block';
+            document.getElementById('downloadBtn').href = downloadUrl;
+            document.getElementById('uploadBtn').disabled = false;
+        }
+
+        function showError(message) {
+            document.getElementById('progressContainer').style.display = 'none';
+            document.getElementById('errorContainer').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('uploadBtn').disabled = false;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const elements = document.querySelectorAll('.animate-fade-in');
+            elements.forEach((el, index) => {
+                el.style.animationDelay = `${index * 0.2}s`;
+            });
+        });
+    </script>
+</body>
+</html>
