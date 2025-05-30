@@ -19,110 +19,114 @@
         </div>
     </nav>
 
-    <div class="hero-section py-5">
-        <div class="container">
-            <div class="row align-items-center hero-content">
-                <div class="col-lg-6 mb-4 mb-lg-0">
-                    <h1 class="display-4 fw-bold mb-4 animate-fade-in">Convert PDF to Excel</h1>
-                    <p class="lead mb-4 animate-fade-in" style="animation-delay: 0.2s;">Transform your PDF documents into structured Excel spreadsheets with enterprise-grade AI-powered extraction technology</p>
-                    <div class="d-flex align-items-center animate-fade-in" style="animation-delay: 0.4s;">
-                        <i class="fas fa-shield-check me-2 text-warning"></i>
-                        <span>Secure • Fast • Accurate</span>
+    <main class="main-content d-flex flex-column gap-5">
+        <div class="hero-section py-5">
+            <div class="container">
+                <div class="row align-items-center hero-content">
+                    <div class="col-lg-6 mb-4 mb-lg-0">
+                        <h1 class="display-4 fw-bold mb-4 animate-fade-in">Convert PDF to Excel</h1>
+                        <p class="lead mb-4 animate-fade-in" style="animation-delay: 0.2s;">Transform your PDF documents into structured Excel spreadsheets with AI-powered extraction technology</p>
+                        <div class="d-flex align-items-center animate-fade-in" style="animation-delay: 0.4s;">
+                            <i class="fas fa-shield-check me-2 text-warning"></i>
+                            <span>Secure • Fast • Accurate</span>
+                        </div>
                     </div>
-                </div>
-                <div class="col-lg-6 text-center">
-                    <div class="hero-icon animate-fade-in" style="animation-delay: 0.6s;">
-                        <i class="fas fa-exchange-alt fa-5x"></i>
+                    <div class="col-lg-6 text-center">
+                        <div class="hero-icon animate-fade-in" style="animation-delay: 0.6s;">
+                            <i class="fas fa-exchange-alt fa-5x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="container my-5">
-        <div class="row justify-content-center">
-            <div class="col-lg-10">
-                <div class="main-card">
-                    <div class="card-header-custom">
-                        <h2 class="text-center mb-0 fw-bold text-dark">Upload Your PDF Document</h2>
-                        <p class="text-center mb-0 mt-2 text-muted">Professional document processing with AI intelligence</p>
-                    </div>
-                    <div class="card-body p-5">
-                        <form id="uploadForm" enctype="multipart/form-data">
-                            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                                <div class="upload-content">
-                                    <i class="fas fa-cloud-upload-alt fa-4x upload-icon mb-3"></i>
-                                    <h4 class="fw-bold text-dark mb-2">Click to select or drag and drop</h4>
-                                    <p class="text-muted mb-2">Upload your PDF file for conversion</p>
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        Maximum file size: 50MB • Supported format: PDF
-                                    </small>
-                                </div>
-                                <input type="file" id="fileInput" name="file" accept=".pdf" style="display: none;">
+        <section class="upload-section py-5">
+            <div class="container d-flex justify-content-center">
+                <div class="row w-100">
+                    <div class="col-12 col-md-10 col-lg-8 mx-auto">
+                        <div class="main-card">
+                            <div class="card-header-custom text-center">
+                                <h2 class="text-center mb-0 fw-bold text-dark">Upload Your PDF Document</h2>
+                                <p class="text-center mb-0 mt-2 text-muted">Professional document processing with AI intelligence</p>
                             </div>
-                            
-                            <div class="selected-file" id="selectedFile" style="display: none;">
-                                <div class="alert alert-info-custom alert-custom file-info">
-                                    <div class="d-flex align-items-center">
-                                        <i class="fas fa-file-pdf me-3 text-danger fs-4"></i>
-                                        <div class="flex-grow-1">
-                                            <h6 class="mb-1 fw-bold">Selected File</h6>
-                                            <span id="fileName" class="text-muted"></span>
+                            <div class="card-body p-5">
+                                <form id="uploadForm" enctype="multipart/form-data">
+                                    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                                        <div class="upload-content">
+                                            <i class="fas fa-cloud-upload-alt fa-4x upload-icon mb-3"></i>
+                                            <h4 class="fw-bold text-dark mb-2">Click to select or drag and drop</h4>
+                                            <p class="text-muted mb-2">Upload your PDF file for conversion</p>
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Maximum file size: 50MB • Supported format: PDF
+                                            </small>
                                         </div>
-                                        <button type="button" class="btn-close" onclick="clearFile()"></button>
+                                        <input type="file" id="fileInput" name="file" accept=".pdf" style="display: none;">
                                     </div>
-                                </div>
-                            </div>
-                            
-                            <div class="text-center mt-4">
-                                <button type="submit" class="btn btn-primary-custom btn-lg" id="uploadBtn" disabled>
-                                    <i class="fas fa-magic me-2"></i>
-                                    Convert to Excel
-                                </button>
-                            </div>
-                        </form>
-
-                        <div class="progress-container mt-5" id="progressContainer" style="display: none;">
-                            <div class="text-center mb-4">
-                                <h5 class="fw-bold text-dark">Processing Your Document</h5>
-                                <p class="text-muted">AI is analyzing and extracting data from your PDF</p>
-                            </div>
-                            <div class="progress progress-custom mb-3">
-                                <div class="progress-bar progress-bar-custom" id="progressBar" style="width: 0%"></div>
-                            </div>
-                            <p class="text-center text-muted" id="progressMessage">Initializing...</p>
-                        </div>
-
-                        <div class="result-container mt-5" id="resultContainer" style="display: none;">
-                            <div class="alert alert-success-custom alert-custom">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-check-circle me-3 text-success fs-3"></i>
-                                    <div class="flex-grow-1">
-                                        <h5 class="fw-bold mb-2 text-success">Conversion Completed Successfully!</h5>
-                                        <p class="mb-3 text-muted">Your PDF has been transformed into a structured Excel spreadsheet with preserved formatting and data integrity.</p>
-                                        <a href="#" class="btn btn-success-custom" id="downloadBtn">
-                                            <i class="fas fa-download me-2"></i>
-                                            Download Excel File
-                                        </a>
+                                    
+                                    <div class="selected-file" id="selectedFile" style="display: none;">
+                                        <div class="alert alert-info-custom alert-custom file-info">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-file-pdf me-3 text-danger fs-4"></i>
+                                                <div class="flex-grow-1">
+                                                    <h6 class="mb-1 fw-bold">Selected File</h6>
+                                                    <span id="fileName" class="text-muted"></span>
+                                                </div>
+                                                <button type="button" class="btn-close" onclick="clearFile()"></button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Error Section -->
-                        <div class="error-container mt-5" id="errorContainer" style="display: none;">
-                            <div class="alert alert-danger-custom alert-custom">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-exclamation-triangle me-3 text-danger fs-3"></i>
-                                    <div class="flex-grow-1">
-                                        <h5 class="fw-bold mb-2 text-danger">Processing Error</h5>
-                                        <p id="errorMessage" class="mb-3 text-muted">An error occurred during processing.</p>
-                                        <button class="btn btn-outline-danger" onclick="resetForm()">
-                                            <i class="fas fa-redo me-2"></i>
-                                            Try Again
+                                    
+                                    <div class="text-center mt-4">
+                                        <button type="submit" class="btn btn-primary-custom btn-lg" id="uploadBtn" disabled>
+                                            <i class="fas fa-magic me-2"></i>
+                                            Convert to Excel
                                         </button>
                                     </div>
+                                </form>
+
+                                <div class="progress-container mt-5" id="progressContainer" style="display: none;">
+                                    <div class="text-center mb-4">
+                                        <h5 class="fw-bold text-dark">Processing Your Document</h5>
+                                        <p class="text-muted">AI is analyzing and extracting data from your PDF</p>
+                                    </div>
+                                    <div class="progress progress-custom mb-3">
+                                        <div class="progress-bar progress-bar-custom" id="progressBar" style="width: 0%"></div>
+                                    </div>
+                                    <p class="text-center text-muted" id="progressMessage">Initializing...</p>
+                                </div>
+
+                                <div class="result-container mt-5" id="resultContainer" style="display: none;">
+                                    <div class="alert alert-success-custom alert-custom">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-check-circle me-3 text-success fs-3"></i>
+                                            <div class="flex-grow-1">
+                                                <h5 class="fw-bold mb-2 text-success">Conversion Completed Successfully!</h5>
+                                                <p class="mb-3 text-muted">Your PDF has been transformed into a structured Excel spreadsheet with preserved formatting and data integrity.</p>
+                                                <a href="#" class="btn btn-success-custom" id="downloadBtn">
+                                                    <i class="fas fa-download me-2"></i>
+                                                    Download Excel File
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Error Section -->
+                                <div class="error-container mt-5" id="errorContainer" style="display: none;">
+                                    <div class="alert alert-danger-custom alert-custom">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-exclamation-triangle me-3 text-danger fs-3"></i>
+                                            <div class="flex-grow-1">
+                                                <h5 class="fw-bold mb-2 text-danger">Processing Error</h5>
+                                                <p id="errorMessage" class="mb-3 text-muted">An error occurred during processing.</p>
+                                                <button class="btn btn-outline-danger" onclick="resetForm()">
+                                                    <i class="fas fa-redo me-2"></i>
+                                                    Try Again
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -130,48 +134,38 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Features Section -->
-    <div class="features-section py-5 text-white">
-        <div class="container position-relative">
-            <div class="row">
-                <div class="col-12 text-center mb-5">
-                    <h2 class="fw-bold display-5 mb-3">Why Choose Our PDF to Excel Converter?</h2>
-                    <p class="lead">Enterprise-grade AI technology for professional document processing</p>
-                </div>
-            </div>
-            <div class="row g-4">
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card card h-100">
-                        <div class="card-body text-center p-4">
-                            <i class="fas fa-brain fa-3x feature-icon mb-3"></i>
-                            <h5 class="fw-bold mb-3">AI-Powered Intelligence</h5>
-                            <p class="text-light">Advanced Gemini AI technology understands complex document structures and extracts data with superior accuracy and context awareness.</p>
-                        </div>
+    
+        <div class="features-section py-5 text-white">
+            <div class="container position-relative">
+                <div class="row">
+                    <div class="col-12 text-center mb-5">
+                        <h2 class="fw-bold display-5 mb-3">Why Choose Our PDF to Excel Converter?</h2>
+                        <p class="lead">AI technology for professional document processing</p>
                     </div>
                 </div>
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card card h-100">
-                        <div class="card-body text-center p-4">
-                            <i class="fas fa-table fa-3x feature-icon mb-3"></i>
-                            <h5 class="fw-bold mb-3">Structure Preservation</h5>
-                            <p class="text-light">Maintains original document hierarchy, tables, forms, and formatting while optimizing for Excel compatibility and usability.</p>
+                <div class="row g-4">
+                    <div class="col-lg-6 col-md-6">
+                        <div class="feature-card card h-100">
+                            <div class="card-body text-center p-4">
+                                <i class="fas fa-brain fa-3x feature-icon mb-3"></i>
+                                <h5 class="fw-bold mb-3">AI-Powered Intelligence</h5>
+                                <p class="text-light">Advanced Gemini AI technology understands complex document structures and extracts data with superior accuracy and context awareness.</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card card h-100">
-                        <div class="card-body text-center p-4">
-                            <i class="fas fa-shield-alt fa-3x feature-icon mb-3"></i>
-                            <h5 class="fw-bold mb-3">Enterprise Security</h5>
-                            <p class="text-light">Bank-level encryption during processing with automatic file deletion ensures your sensitive documents remain completely secure.</p>
+                    <div class="col-lg-6 col-md-6">
+                        <div class="feature-card card h-100">
+                            <div class="card-body text-center p-4">
+                                <i class="fas fa-table fa-3x feature-icon mb-3"></i>
+                                <h5 class="fw-bold mb-3">Structure Preservation</h5>
+                                <p class="text-light">Maintains original document hierarchy, tables, forms, and formatting while optimizing for Excel compatibility and usability.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
     <!-- Footer -->
     <footer class="footer text-light py-4">
