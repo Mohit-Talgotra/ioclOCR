@@ -75,12 +75,12 @@ def process_pdf_async(job_id: str, pdf_path: str):
         job.message = "Extracting structured data from PDF..."
         pdf_to_json_main(pdf_path, job_processing_dir, json_output)
         job.json_path = json_output
-        
+
         job.progress = 70
         job.message = "Converting data to Excel format..."
         json_to_excel_main(json_output, excel_output)
         job.excel_path = excel_output
-
+    
         job.status = "completed"
         job.progress = 100
         job.message = "Processing completed successfully!"

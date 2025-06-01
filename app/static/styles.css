@@ -333,3 +333,90 @@ body {
         padding: 2rem 1rem;
     }
 }
+
+:root {
+    --primary-orange: #ea580c;
+    --secondary-orange: #fb923c;
+    --light-orange: #fed7aa;
+    
+    --primary-blue: #1e3a8a;
+    --secondary-blue: #3b82f6;
+    --light-blue: #dbeafe;
+
+    --dark-gray: #1f2937;
+    --medium-gray: #6b7280;
+    --light-gray: #f8fafc;
+    --white: #ffffff;
+
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+}
+
+body {
+    background: linear-gradient(135deg, var(--light-orange) 0%, var(--light-blue) 100%);
+    min-height: 100vh;
+}
+
+.navbar {
+    background: linear-gradient(135deg, var(--primary-orange) 0%, var(--secondary-orange) 100%) !important;
+    box-shadow: 0 4px 20px rgba(234, 88, 12, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+.hero-section {
+    background: linear-gradient(135deg, var(--primary-orange) 0%, var(--secondary-orange) 60%, var(--primary-blue) 100%);
+    color: var(--white);
+}
+
+.btn-primary-custom {
+    background: linear-gradient(135deg, var(--primary-orange) 0%, var(--secondary-orange) 100%);
+    box-shadow: 0 4px 15px rgba(234, 88, 12, 0.3);
+}
+
+.btn-primary-custom:hover {
+    background: linear-gradient(135deg, var(--secondary-orange) 0%, var(--primary-orange) 100%);
+    box-shadow: 0 8px 25px rgba(234, 88, 12, 0.4);
+}
+
+.upload-area {
+    border: 3px dashed var(--primary-orange);
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.07) 0%, rgba(59, 130, 246, 0.03) 100%);
+}
+
+.upload-area:hover {
+    border-color: var(--primary-orange);
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.15) 0%, rgba(59, 130, 246, 0.07) 100%);
+    box-shadow: 0 10px 25px rgba(251, 146, 60, 0.15);
+}
+
+.upload-icon {
+    background: linear-gradient(135deg, var(--primary-orange) 0%, var(--primary-blue) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.progress-bar-custom {
+    background: linear-gradient(135deg, var(--primary-orange) 0%, var(--secondary-orange) 100%);
+}
+
+.features-section {
+    background: linear-gradient(135deg, var(--primary-orange) 0%, var(--secondary-orange) 60%, var(--primary-blue) 100%);
+}
+
+.feature-icon {
+    background: linear-gradient(135deg, var(--secondary-orange) 0%, var(--primary-orange) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.alert-info-custom {
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.1) 0%, rgba(251, 146, 60, 0.05) 100%);
+    border-left: 4px solid var(--secondary-orange);
+}
+
+.file-info {
+    background: linear-gradient(135deg, var(--light-orange) 0%, var(--light-blue) 100%);
+}

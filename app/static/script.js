@@ -87,7 +87,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         document.getElementById('progressContainer').style.display = 'block';
         document.getElementById('uploadBtn').disabled = true;
 
-        const response = await fetch('/upload', {
+        const response = await fetch('/convert', {
             method: 'POST',
             body: formData
         });
