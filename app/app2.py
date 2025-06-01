@@ -2,7 +2,6 @@ import os
 import uuid
 import shutil
 import logging
-import json
 from datetime import datetime
 from flask import Flask, request, render_template, send_file, jsonify, redirect, url_for
 from werkzeug.utils import secure_filename
@@ -101,114 +100,14 @@ def process_pdf_async(job_id: str, pdf_path: str):
         except Exception as e:
             logger.error(f"Error cleaning up processing directory for job {job_id}: {e}")
 
-def process_pdf_direct(pdf_path: str):
-    """
-    Direct synchronous PDF processing for VBA integration
-    Returns the JSON data that can be used to populate Excel
-    """
-    temp_id = str(uuid.uuid4())
-    temp_processing_dir = os.path.join(app.config['PROCESSING_FOLDER'], temp_id)
-    
-    try:
-        os.makedirs(temp_processing_dir, exist_ok=True)
-        
-        # Generate unique output paths
-        json_output = os.path.join(temp_processing_dir, f"results_{temp_id}.json")
-        
-        logger.info(f"Starting direct PDF processing for {pdf_path}")
-        
-        # Convert PDF to JSON
-        pdf_to_json_main(pdf_path, temp_processing_dir, json_output)
-        
-        # Read the JSON data
-        if os.path.exists(json_output):
-            with open(json_output, 'r', encoding='utf-8') as f:
-                json_data = json.load(f)
-            
-            logger.info("Direct PDF processing completed successfully")
-            return json_data
-        else:
-            raise Exception("JSON output file not created")
-            
-    except Exception as e:
-        logger.error(f"Direct PDF processing failed: {e}")
-        raise e
-    
-    finally:
-        # Cleanup temporary directory
-        try:
-            if os.path.exists(temp_processing_dir):
-                shutil.rmtree(temp_processing_dir)
-        except Exception as e:
-            logger.error(f"Error cleaning up temp directory {temp_processing_dir}: {e}")
-
 @app.route('/')
 def index():
     """Main upload page"""
     return render_template('index.html')
 
-@app.route('/convert-pdf', methods=['POST'])
-def convert_pdf_direct():
-    """
-    Direct PDF conversion endpoint for VBA integration
-    Accepts multipart/form-data with PDF file and returns JSON data directly
-    """
-    try:
-        # Check if file is present
-        if 'file' not in request.files:
-            logger.error("No file in request")
-            return jsonify({'error': 'No file provided'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            logger.error("Empty filename")
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not allowed_file(file.filename):
-            logger.error(f"Invalid file type: {file.filename}")
-            return jsonify({'error': 'Only PDF files are allowed'}), 400
-        
-        # Save uploaded file temporarily
-        temp_id = str(uuid.uuid4())
-        filename = secure_filename(file.filename)
-        temp_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"temp_{temp_id}_{filename}")
-        
-        logger.info(f"Saving uploaded file to {temp_file_path}")
-        file.save(temp_file_path)
-        
-        try:
-            # Process PDF and get JSON data
-            json_data = process_pdf_direct(temp_file_path)
-            
-            # Return the JSON data directly
-            response = jsonify({
-                'status': 'success',
-                'message': 'PDF converted successfully',
-                'data': json_data
-            })
-            
-            logger.info(f"Successfully processed PDF: {filename}")
-            return response
-            
-        finally:
-            # Clean up uploaded file
-            try:
-                if os.path.exists(temp_file_path):
-                    os.remove(temp_file_path)
-            except Exception as e:
-                logger.error(f"Error cleaning up uploaded file {temp_file_path}: {e}")
-        
-    except Exception as e:
-        logger.error(f"Error in convert_pdf_direct: {e}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e),
-            'message': 'Failed to process PDF'
-        }), 500
-
 @app.route('/convert', methods=['POST'])
 def upload_file():
-    """Handle file upload for async processing (existing functionality)"""
+    """Handle file upload"""
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file selected'}), 400
@@ -298,15 +197,6 @@ def progress_page(job_id):
     
     return render_template('progress.html', job_id=job_id)
 
-@app.route('/health')
-def health_check():
-    """Health check endpoint for VBA to test connectivity"""
-    return jsonify({
-        'status': 'healthy',
-        'message': 'PDF Converter API is running',
-        'timestamp': datetime.now().isoformat()
-    })
-
 @app.errorhandler(413)
 def too_large(e):
     return jsonify({'error': 'File too large. Maximum size is 50MB.'}), 413
@@ -342,4 +232,4 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
     
-    app.run(host='127.0.0.1', port=port, debug=debug, ssl_context=('app/certs/cert.pem', 'app/certs/key.pem'))
+    app.run(host='0.0.0.0', port=port, debug=debug, ssl_context=('app/certs/cert.pem', 'app/certs/key.pem'))
