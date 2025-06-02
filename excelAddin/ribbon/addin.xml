@@ -1,0 +1,14 @@
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui"> 
+  <ribbon startFromScratch="false"> 
+    <tabs> 
+      <tab id="CustomTab" label="PDF Converter"> 
+        <group id="SimpleControls" label="My Group"> 
+          <button id="Button1" imageMso="HappyFace" size="large" 
+                  label="Convert PDF to Excel" 
+                  screentip="Converts the uploaded PDF into an Excel sheet which will populate this sheet"
+                  onAction="ConvertPDFToExcel"/> 
+        </group> 
+      </tab> 
+    </tabs> 
+  </ribbon> 
+</customUI> 
