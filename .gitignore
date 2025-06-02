@@ -3,3 +3,5 @@
 .env
 /*processing
 **/__pycache__
+**/uploads
+**/certs
