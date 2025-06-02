@@ -28,8 +28,7 @@ class APIRateLimiter:
                 time.sleep(sleep_time)
             self.last_call_time = time.time()
 
-# Create global rate limiter
-api_limiter = APIRateLimiter(calls_per_minute=15)  # Adjust based on your API limits
+api_limiter = APIRateLimiter(calls_per_minute=15)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
