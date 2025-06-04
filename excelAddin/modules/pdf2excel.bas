@@ -11,29 +11,29 @@ Public Sub ConvertPDFToExcel(control As IRibbonControl)
     
     Dim pdfFilePath As String
     pdfFilePath = GetPDFFile()
-    
+
     If pdfFilePath = "" Then
         MsgBox "No file selected.", vbInformation
         Exit Sub
     End If
-    
+
     Application.StatusBar = "Converting PDF to Excel..."
     Application.ScreenUpdating = False
-    
+
     Dim excelData As String
     excelData = UploadPDFToFlask(pdfFilePath)
-    
+
     If excelData <> "" Then
         PopulateExcelWithData excelData
         MsgBox "PDF conversion completed successfully!", vbInformation
     Else
         MsgBox "Failed to convert PDF. Please check your Flask server.", vbCritical
     End If
-    
+
     Application.StatusBar = False
     Application.ScreenUpdating = True
     Exit Sub
-    
+
 ErrorHandler:
     Application.StatusBar = False
     Application.ScreenUpdating = True

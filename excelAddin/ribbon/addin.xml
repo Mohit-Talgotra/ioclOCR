@@ -6,7 +6,7 @@
           <button id="Button1" imageMso="HappyFace" size="large" 
                   label="Convert PDF to Excel" 
                   screentip="Converts the uploaded PDF into an Excel sheet which will populate this sheet"
-                  onAction="ConvertPDFToExcel"/> 
+                  onAction="ConvertPDFToExcel"/>
         </group> 
       </tab> 
     </tabs> 
