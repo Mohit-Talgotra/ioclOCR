@@ -568,3 +568,78 @@ Private Sub ParseAndPopulateCSV(csvData As String, ws As Worksheet)
 ErrorHandler:
     MsgBox "Error parsing CSV: " & Err.Description, vbCritical
 End Sub
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Private Function CreateGeminiRequestBody(base64Data As String) As String
+    Dim prompt As String
+    
+    ' Table extraction prompt based on your Python code
+    prompt = "Analyze this PDF document and extract ALL table information into well-structured JSON." & vbCrLf & vbCrLf & _
+             "Instructions for extraction:" & vbCrLf & _
+             "1. Identify all tables in the document" & vbCrLf & _
+             "2. For each table:" & vbCrLf & _
+             "   - Extract as a nested array structure with headers" & vbCrLf & _
+             "   - Maintain column headers and row labels" & vbCrLf & _
+             "   - Preserve all cell values with their exact formatting" & vbCrLf & _
+             "   - Handle merged cells appropriately" & vbCrLf & _
+             "   - If a signature is detected in any column, indicate 'SIGNATURE DETECTED'" & vbCrLf & vbCrLf & _
+             "OUTPUT FORMAT:" & vbCrLf & _
+             "Return ONLY valid JSON with this structure:" & vbCrLf & _
+             "{" & vbCrLf & _
+             "  ""document_metadata"": {" & vbCrLf & _
+             "    ""total_pages"": ""detected page count""," & vbCrLf & _
+             "    ""document_type"": ""detected document type""" & vbCrLf & _
+             "  }," & vbCrLf & _
+             "  ""tables"": [" & vbCrLf & _
+             "    {" & vbCrLf & _
+             "      ""table_number"": 1," & vbCrLf & _
+             "      ""table_title"": ""title if present or 'Table 1'""," & vbCrLf & _
+             "      ""page_number"": ""page where table is found""," & vbCrLf & _
+             "      ""headers"": [""header1"", ""header2"", ...]," & vbCrLf & _
+             "      ""data"": [" & vbCrLf & _
+             "        [""row1col1"", ""row1col2"", ...]," & vbCrLf & _
+             "        [""row2col1"", ""row2col2"", ...]" & vbCrLf & _
+             "      ]" & vbCrLf & _
+             "    }" & vbCrLf & _
+             "  ]" & vbCrLf & _
+             "}" & vbCrLf & vbCrLf & _
+             "Ensure proper JSON escaping for special characters and ensure the output is valid JSON." & vbCrLf & _
+             "If no tables are found, return an empty tables array."
+    
+    ' Create the JSON request body
+    Dim requestJson As String
+    requestJson = "{" & vbCrLf & _
+                  "  ""contents"": [{" & vbCrLf & _
+                  "    ""parts"": [" & vbCrLf & _
+                  "      {""text"": """ & Replace(Replace(prompt, """", "\"""), vbCrLf, "\n") & """}," & vbCrLf & _
+                  "      {" & vbCrLf & _
+                  "        ""inline_data"": {" & vbCrLf & _
+                  "          ""mime_type"": ""application/pdf""," & vbCrLf & _
+                  "          ""data"": """ & base64Data & """" & vbCrLf & _
+                  "        }" & vbCrLf & _
+                  "      }" & vbCrLf & _
+                  "    ]" & vbCrLf & _
+                  "  }]," & vbCrLf & _
+                  "  ""generationConfig"": {" & vbCrLf & _
+                  "    ""temperature"": 0.1," & vbCrLf & _
+                  "    ""maxOutputTokens"": 8192" & vbCrLf & _
+                  "  }" & vbCrLf & _
+                  "}"
+    
+    CreateGeminiRequestBody = requestJson
+End Function
