@@ -102,25 +102,18 @@ def process_pdf_async(job_id: str, pdf_path: str):
             logger.error(f"Error cleaning up processing directory for job {job_id}: {e}")
 
 def process_pdf_direct(pdf_path: str):
-    """
-    Direct synchronous PDF processing for VBA integration
-    Returns the JSON data that can be used to populate Excel
-    """
     temp_id = str(uuid.uuid4())
     temp_processing_dir = os.path.join(app.config['PROCESSING_FOLDER'], temp_id)
     
     try:
         os.makedirs(temp_processing_dir, exist_ok=True)
         
-        # Generate unique output paths
         json_output = os.path.join(temp_processing_dir, f"results_{temp_id}.json")
         
         logger.info(f"Starting direct PDF processing for {pdf_path}")
         
-        # Convert PDF to JSON
         pdf_to_json_main(pdf_path, temp_processing_dir, json_output)
         
-        # Read the JSON data
         if os.path.exists(json_output):
             with open(json_output, 'r', encoding='utf-8') as f:
                 json_data = json.load(f)
@@ -135,7 +128,6 @@ def process_pdf_direct(pdf_path: str):
         raise e
     
     finally:
-        # Cleanup temporary directory
         try:
             if os.path.exists(temp_processing_dir):
                 shutil.rmtree(temp_processing_dir)
@@ -144,17 +136,11 @@ def process_pdf_direct(pdf_path: str):
 
 @app.route('/')
 def index():
-    """Main upload page"""
     return render_template('index.html')
 
 @app.route('/convert-pdf', methods=['POST'])
 def convert_pdf_direct():
-    """
-    Direct PDF conversion endpoint for VBA integration
-    Accepts multipart/form-data with PDF file and returns JSON data directly
-    """
     try:
-        # Check if file is present
         if 'file' not in request.files:
             logger.error("No file in request")
             return jsonify({'error': 'No file provided'}), 400
@@ -168,7 +154,6 @@ def convert_pdf_direct():
             logger.error(f"Invalid file type: {file.filename}")
             return jsonify({'error': 'Only PDF files are allowed'}), 400
         
-        # Save uploaded file temporarily
         temp_id = str(uuid.uuid4())
         filename = secure_filename(file.filename)
         temp_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"temp_{temp_id}_{filename}")
@@ -196,8 +181,7 @@ def convert_pdf_direct():
                 if os.path.exists(temp_file_path):
                     os.remove(temp_file_path)
             except Exception as e:
-                logger.error(f"Error cleaning up uploaded file {temp_file_path}: {e}")
-        
+                logger.error(f"Error cleaning up uploaded file {temp_file_path}: {e}")    
     except Exception as e:
         logger.error(f"Error in convert_pdf_direct: {e}")
         return jsonify({
