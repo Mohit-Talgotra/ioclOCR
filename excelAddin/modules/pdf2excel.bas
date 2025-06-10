@@ -123,7 +123,7 @@ Private Function UploadPDFToFlask(filePath As String) As String
     Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
     http.SetTimeouts 60000, 60000, 60000, 300000
     http.Option(4) = &H3300
-    http.Open "POST", "https://127.0.0.1:5000/convert-pdf", False  ' Changed to http
+    http.Open "POST", "https://127.0.0.1:5000/convert-pdf", False
     http.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & boundary
     http.SetRequestHeader "Content-Length", CStr(totalSize)
     
@@ -587,8 +587,7 @@ End Sub
 
 Private Function CreateGeminiRequestBody(base64Data As String) As String
     Dim prompt As String
-    
-    ' Table extraction prompt based on your Python code
+
     prompt = "Analyze this PDF document and extract ALL table information into well-structured JSON." & vbCrLf & vbCrLf & _
              "Instructions for extraction:" & vbCrLf & _
              "1. Identify all tables in the document" & vbCrLf & _
@@ -620,8 +619,7 @@ Private Function CreateGeminiRequestBody(base64Data As String) As String
              "}" & vbCrLf & vbCrLf & _
              "Ensure proper JSON escaping for special characters and ensure the output is valid JSON." & vbCrLf & _
              "If no tables are found, return an empty tables array."
-    
-    ' Create the JSON request body
+
     Dim requestJson As String
     requestJson = "{" & vbCrLf & _
                   "  ""contents"": [{" & vbCrLf & _
