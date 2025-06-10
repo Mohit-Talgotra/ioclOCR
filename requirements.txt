@@ -13,3 +13,5 @@ pytesseract
 easyocr
 openpyxl
 requests
+flask
+werkzeug
