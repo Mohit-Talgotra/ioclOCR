@@ -156,8 +156,6 @@ Private Function ProcessImagePageWithGemini(imagePath As String, apiKey As Strin
     If fileUri = "" Then Exit Function
 
     jsonRequest = CreateGeminiImageRequest(fileUri)
-    
-    LogRequestToFile jsonRequest
 
     Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
     http.SetTimeouts 60000, 60000, 60000, 300000
@@ -330,38 +328,6 @@ Private Function CreateGeminiImageRequest(fileUri As String) As String
    
    CreateGeminiImageRequest = jsonRequest
 End Function
-
-Private Sub LogRequestToFile(jsonRequest As String)
-   On Error Resume Next
-   
-   Dim filePath As String
-   Dim fileNumber As Integer
-   Dim promptStart As Long, promptEnd As Long
-   Dim extractedPrompt As String
-   
-   filePath = "C:\Users\talgo\OneDrive\Desktop\request_log.txt"
-
-   promptStart = InStr(jsonRequest, """text"": """) + 9
-   promptEnd = InStr(promptStart, jsonRequest, """},")
-   
-   If promptEnd > promptStart Then
-       extractedPrompt = Mid(jsonRequest, promptStart, promptEnd - promptStart - 1)
-       extractedPrompt = Replace(extractedPrompt, "\""", """")
-       extractedPrompt = Replace(extractedPrompt, "\\", "\")
-       extractedPrompt = Replace(extractedPrompt, "\n", vbCrLf)
-   Else
-       extractedPrompt = "Could not extract prompt text"
-   End If
-   
-   fileNumber = FreeFile
-   Open filePath For Output As #fileNumber
-   Print #fileNumber, "=== PROMPT TEXT SENT TO GEMINI ==="
-   Print #fileNumber, extractedPrompt
-   Print #fileNumber, ""
-   Print #fileNumber, "=== FULL JSON REQUEST ==="
-   Print #fileNumber, jsonRequest
-   Close #fileNumber
-End Sub
 
 Private Function ParseGeminiResponse(response As String) As String
     On Error GoTo ErrorHandler
