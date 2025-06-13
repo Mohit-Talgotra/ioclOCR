@@ -315,6 +315,8 @@ Private Function CreateGeminiImageRequest(fileUri As String) As String
    promptText = promptText & Chr(34) & "rows" & Chr(34) & ": [[" & Chr(34) & "value1" & Chr(34) & ", " & Chr(34) & "value2" & Chr(34) & ", ...], "
    promptText = promptText & "[" & Chr(34) & "value1" & Chr(34) & ", " & Chr(34) & "value2" & Chr(34) & ", ...], ...]}]. "
    promptText = promptText & "Do not include any other text, markdown formatting, or code blocks. Each table should be a separate object in the array."
+   promptText = promptText & "VERY IMPORTANT: If a signature is detected in a column like User Sign or anything of that kind, put the text SIGNATURE DETECTED in that column in each row where the signature is detected in your structure output"
+   promptText = promptText & "Before sending final output, understand the data in context and recheck the output for any misalignment of columns or misplaced data, and fix those problems."
    
    ' Properly escape the prompt text for JSON
    promptText = Replace(promptText, "\", "\\")
@@ -632,6 +634,8 @@ Private Function ParseStandardizedTableRows(rowsContent As String, ws As Workshe
                     ws.Cells(currentRow, j + 1).Value = rowData(j)
                 End If
             Next j
+            
+            Call HighlightSignatureDetectedRow(ws, currentRow)
             
             currentRow = currentRow + 1
             pos = endPos
@@ -1092,4 +1096,24 @@ Private Sub ParseSingleTableToSheet(tableContent As String, ws As Worksheet)
     
 ErrorHandler:
     MsgBox "Error parsing single table to sheet: " & Err.Description, vbCritical
+End Sub
+
+Private Sub HighlightSignatureDetectedRow(ws As Worksheet, rowNum As Long)
+
+    Dim col As Long
+    Dim lastCol As Long
+    lastCol = ws.Cells(rowNum, ws.Columns.Count).End(xlToLeft).Column
+
+    For col = 1 To lastCol
+
+        If InStr(1, ws.Cells(rowNum, col).Value, "SIGNATURE DETECTED", vbTextCompare) > 0 Then
+
+            ws.Range(ws.Cells(rowNum, 1), ws.Cells(rowNum, lastCol)).Interior.Color = RGB(198, 239, 206)
+
+            Exit Sub
+
+        End If
+
+    Next col
+
 End Sub
