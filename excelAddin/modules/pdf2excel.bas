@@ -1,3 +1,12 @@
+Private Const LOG_FILE_PATH As String = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\pdf_processing.log"
+
+Public Enum LogLevel
+    Info = 1
+    Warning = 2
+    Error = 3
+    Debugging = 4
+End Enum
+
 Option Explicit
 
 Public ribbon As IRibbonUI
@@ -6,54 +15,138 @@ Public Sub RibbonOnLoad(ribbonUI As IRibbonUI)
     Set ribbon = ribbonUI
 End Sub
 
+Public Sub WriteLog(message As String, Optional level As LogLevel = LogLevel.Info)
+    On Error Resume Next
+    
+    Dim fileNumber As Integer
+    Dim timestamp As String
+    Dim levelText As String
+    Dim logEntry As String
+
+    timestamp = Format(Now, "yyyy-mm-dd hh:mm:ss")
+
+    Select Case level
+        Case LogLevel.Info
+            levelText = "INFO"
+        Case LogLevel.Warning
+            levelText = "WARNING"
+        Case LogLevel.Error
+            levelText = "ERROR"
+        Case LogLevel.Debugging
+            levelText = "DEBUG"
+        Case Else
+            levelText = "INFO"
+    End Select
+
+    logEntry = timestamp & " [" & levelText & "] " & message
+
+    fileNumber = FreeFile
+
+    Open LOG_FILE_PATH For Append As #fileNumber
+
+    Print #fileNumber, logEntry
+
+    Close #fileNumber
+
+    Debug.Print logEntry
+End Sub
+
+Public Sub LogInfo(message As String)
+    WriteLog message, LogLevel.Info
+End Sub
+
+Public Sub LogWarning(message As String)
+    WriteLog message, LogLevel.Warning
+End Sub
+
+Public Sub LogError(message As String)
+    WriteLog message, LogLevel.Error
+End Sub
+
+Public Sub LogDebug(message As String)
+    WriteLog message, LogLevel.Debugging
+End Sub
+
+Public Sub LogSessionStart()
+    WriteLog String(80, "="), LogLevel.Info
+    WriteLog "PDF Processing Session Started", LogLevel.Info
+    WriteLog String(80, "="), LogLevel.Info
+End Sub
+
+Public Sub LogSessionEnd()
+    WriteLog String(80, "="), LogLevel.Info
+    WriteLog "PDF Processing Session Ended", LogLevel.Info
+    WriteLog String(80, "="), LogLevel.Info
+    WriteLog "", LogLevel.Info
+End Sub
+
+Public Sub ClearLogFile()
+    On Error Resume Next
+    
+    Dim fileNumber As Integer
+    fileNumber = FreeFile
+
+    Open LOG_FILE_PATH For Output As #fileNumber
+    Close #fileNumber
+    
+    WriteLog "Log file cleared", LogLevel.Info
+End Sub
+
+Public Sub OpenLogFile()
+    On Error Resume Next
+    Shell "notepad.exe " & LOG_FILE_PATH, vbNormalFocus
+End Sub
+
 Public Sub PDFToExcel(control As IRibbonControl)
 
     Dim pdfPath As String
-    Dim pdfFolder As String
     Dim imageFolder As String
     Dim shellCmd As String
     Dim wsh As Object
     Dim exitCode As Long
 
+    LogInfo "Starting PDF to Excel conversion process"
+    
     pdfPath = GetPDFFile()
     If pdfPath = "" Then
-        Debug.Print "No PDF file selected."
+        LogWarning "No PDF file selected."
         Exit Sub
     End If
 
-    pdfFolder = Left(pdfPath, InStrRev(pdfPath, "\") - 1)
     imageFolder = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\pdf_images"
 
-    Debug.Print "PDF path: " & pdfPath
-    Debug.Print "PDF folder: " & pdfFolder
-    Debug.Print "Image folder: " & imageFolder
+    LogDebug "PDF path: " & pdfPath
+    LogDebug "Image folder: " & imageFolder
 
     If Dir(imageFolder, vbDirectory) = "" Then
         MkDir imageFolder
-        Debug.Print "Created image folder: " & imageFolder
+        LogInfo "Created image folder: " & imageFolder
     Else
-        Debug.Print "Image folder already exists."
+        LogDebug "Image folder already exists."
     End If
 
     shellCmd = "cmd /c cd /d """ & imageFolder & """ && pdftoppm -jpeg """ & pdfPath & """ page"
-    Debug.Print "Shell command: " & shellCmd
+    LogDebug "Shell command: " & shellCmd
 
     Set wsh = CreateObject("WScript.Shell")
+    LogInfo "Converting PDF to images using pdftoppm..."
 
     exitCode = wsh.Run(shellCmd, 0, True)
-
-    Debug.Print "pdftoppm exited with code: " & exitCode
+    LogInfo "pdftoppm process completed with exit code: " & exitCode
 
     If exitCode = 0 Then
-        ' Do nothing
+        LogInfo "PDF to images conversion successful"
     Else
+        LogError "Error converting PDF to images. Exit code: " & exitCode
         MsgBox "Error converting PDF to images. Exit code: " & exitCode, vbCritical
     End If
 
     Set wsh = Nothing
     
+    LogInfo "Starting table extraction from images..."
     ConvertPDFToExcel (imageFolder)
-
+    
+    LogSessionEnd
 End Sub
 
 Private Function GetPDFFile() As String
@@ -81,6 +174,8 @@ Private Sub ConvertPDFToExcel(imageFolder As String)
     Dim tableData As String
     Dim apiKey As String
 
+    LogInfo "Starting ConvertPDFToExcel process"
+    
     apiKey = "AIzaSyA78zCKSrZHcRLB1nvhPJuDPqFeHT8Iu4Q"
 
     imageFolder = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\pdf_images"
@@ -88,25 +183,34 @@ Private Sub ConvertPDFToExcel(imageFolder As String)
     If Right(imageFolder, 1) <> "\" Then
         imageFolder = imageFolder & "\"
     End If
+    
+    LogDebug "Final image folder path: " & imageFolder
 
     Application.StatusBar = "Extracting tables from images..."
     Application.ScreenUpdating = False
-
+    
+    LogInfo "Calling Gemini API to extract tables from images..."
     tableData = ExtractTablesWithGeminiFromImages(imageFolder, apiKey)
     Dim filePath As String
     Dim fileNumber As Integer
     
     filePath = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\output\output.txt"
+    LogDebug "Saving extracted data to: " & filePath
     
     fileNumber = FreeFile
     Open filePath For Output As #fileNumber
     Print #fileNumber, tableData
     Close #fileNumber
     
+    LogInfo "Table data saved to output file"
+    LogInfo "Starting Excel sheet population..."
+    
     TestParseFromFile (filePath)
 
     Application.StatusBar = False
     Application.ScreenUpdating = True
+    
+    LogInfo "ConvertPDFToExcel process completed"
 End Sub
 
 Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey As String) As String
@@ -115,34 +219,51 @@ Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey
     Dim file As Object
     Dim combinedData As String
     Dim pageNum As Integer
+    
+    LogInfo "Starting table extraction from images in folder: " & imageFolder
 
     Set fso = CreateObject("Scripting.FileSystemObject")
 
     If Dir(imageFolder, vbDirectory) = "" Then
+        LogError "Selected folder does not exist or is inaccessible: " & imageFolder
         MsgBox "Selected folder does not exist or is inaccessible.", vbCritical
         Exit Function
     End If
     
     Set folder = fso.GetFolder(imageFolder)
     If folder Is Nothing Then
+        LogError "Failed to access folder."
         MsgBox "Failed to access folder.", vbCritical
         Exit Function
     End If
+    
+    imageCount = 0
+    For Each file In folder.Files
+        If LCase(fso.GetExtensionName(file.Name)) = "jpg" Then
+            imageCount = imageCount + 1
+        End If
+    Next file
+    
+    LogInfo "Found " & imageCount & " image files to process"
 
     pageNum = 1
 
     For Each file In folder.Files
         If LCase(fso.GetExtensionName(file.Name)) = "jpg" Then
-            Debug.Print "Processing page image: " & file.Name
+            LogInfo "Processing page " & pageNum & " of " & imageCount & ": " & file.Name
             Dim pageResponse As String
             pageResponse = ProcessImagePageWithGemini(file.Path, apiKey)
             If pageResponse <> "" Then
                 combinedData = combinedData & pageResponse & vbCrLf
+                LogInfo "Successfully extracted data from page " & pageNum
+            Else
+                LogWarning "No data extracted from page " & pageNum & ": " & file.Name
             End If
             pageNum = pageNum + 1
         End If
     Next file
-
+    
+    LogInfo "Completed processing all images. Total pages processed: " & (pageNum - 1)
     ExtractTablesWithGeminiFromImages = combinedData
 End Function
 
@@ -151,25 +272,38 @@ Private Function ProcessImagePageWithGemini(imagePath As String, apiKey As Strin
     Dim jsonRequest As String
     Dim responseText As String
     Dim http As Object
-
+    
+    LogDebug "Starting Gemini API processing for image: " & imagePath
+    
+    LogDebug "Uploading file to Gemini..."
     fileUri = UploadFileToGemini(imagePath, apiKey)
-    If fileUri = "" Then Exit Function
-
+    If fileUri = "" Then
+        LogError "Failed to upload file to Gemini: " & imagePath
+        Exit Function
+    End If
+    
+    LogDebug "File uploaded successfully. URI: " & fileUri
+    
     jsonRequest = CreateGeminiImageRequest(fileUri)
+    LogDebug "Created Gemini API request"
 
     Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
     http.SetTimeouts 60000, 60000, 60000, 300000
     http.Open "POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" & apiKey, False
     http.SetRequestHeader "Content-Type", "application/json"
+    
+    LogDebug "Sending request to Gemini API..."
     http.Send jsonRequest
 
     responseText = http.responseText
-    Debug.Print "Gemini Image Response: " & responseText
-
+    LogDebug "Received response from Gemini API. Status: " & http.Status
+    
     If http.Status = 200 Then
+        LogInfo "Gemini API call successful for image: " & imagePath
         ProcessImagePageWithGemini = ParseGeminiResponse(responseText)
     Else
-        Debug.Print "Gemini API Error: " & http.Status & " - " & http.StatusText
+        LogError "Gemini API Error for image " & imagePath & ": " & http.Status & " - " & http.StatusText
+        LogError "Response: " & responseText
         ProcessImagePageWithGemini = ""
     End If
 
@@ -194,7 +328,7 @@ Private Function UploadFileToGemini(filePath As String, apiKey As String) As Str
     Dim uriStart As Long, uriEnd As Long
     Dim fileName As String
     Dim contentType As String
-
+    
     fileName = Mid(filePath, InStrRev(filePath, "\") + 1)
 
     If LCase(Right(fileName, 4)) = ".jpg" Or LCase(Right(fileName, 5)) = ".jpeg" Then
@@ -399,8 +533,11 @@ End Function
 Private Sub TestParseFromFile(filePath As String)
     Dim fileContent As String
     Dim fileNumber As Integer
+    
+    LogInfo "Starting TestParseFromFile for: " & filePath
 
     If Dir(filePath) = "" Then
+        LogError "File not found: " & filePath
         MsgBox "File not found: " & filePath, vbCritical
         Exit Sub
     End If
@@ -409,12 +546,17 @@ Private Sub TestParseFromFile(filePath As String)
     Open filePath For Input As #fileNumber
     fileContent = Input(LOF(fileNumber), fileNumber)
     Close #fileNumber
+    
+    LogDebug "File content length: " & Len(fileContent) & " characters"
 
     If fileContent <> "" Then
+        LogInfo "Parsing extracted data into Excel sheets..."
         Dim tableCount As Integer
         tableCount = ParseGeminiDataToSeparateSheets(fileContent)
+        LogInfo "Parsing completed successfully! Created " & tableCount & " sheets for " & tableCount & " tables"
         MsgBox "Test parsing completed successfully! Created " & tableCount & " sheets for " & tableCount & " tables.", vbInformation
     Else
+        LogError "File is empty or could not be read: " & filePath
         MsgBox "File is empty or could not be read.", vbCritical
     End If
 End Sub
@@ -592,7 +734,6 @@ Private Sub PopulateExcelWithGeminiData(jsonData As String)
     ParseGeminiTableJSON jsonData, ws
 
     ws.Columns.AutoFit
-    ws.Range("A1").Select
     
     Exit Sub
     
@@ -671,13 +812,13 @@ Private Function ParseJSONStringArray(arrayContent As String) As Variant
 
     ReDim Preserve items(0 To itemCount - 1)
     ParseJSONStringArray = items
-    Exit Sub
+    Exit Function
     
 ErrorHandler:
     ReDim items(0 To 0)
     items(0) = ""
     ParseJSONStringArray = items
-End Sub
+End Function
 
 Private Function FindArrayEnd(text As String, startPos As Long) As Long
     Dim bracketCount As Long
@@ -801,7 +942,6 @@ Public Sub ParseGeminiTableJSONToSheet(jsonString As String, ws As Worksheet)
     End If
 
     ws.Columns.AutoFit
-    ws.Range("A1").Select
     
     Exit Sub
     
@@ -971,7 +1111,6 @@ Private Sub ParseSingleTableToSheet(tableContent As String, ws As Worksheet)
     End If
     
     ws.Columns.AutoFit
-    ws.Range("A1").Select
     
     Exit Sub
     
