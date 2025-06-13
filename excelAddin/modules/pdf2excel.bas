@@ -40,8 +40,7 @@ Public Sub PDFToExcel(control As IRibbonControl)
 
     Set wsh = CreateObject("WScript.Shell")
 
-    ' Run synchronously and wait for completion
-    exitCode = wsh.Run(shellCmd, 0, True) ' 0 = hidden window, True = wait
+    exitCode = wsh.Run(shellCmd, 0, True)
 
     Debug.Print "pdftoppm exited with code: " & exitCode
 
@@ -198,10 +197,8 @@ Private Function UploadFileToGemini(filePath As String, apiKey As String) As Str
     Dim fileName As String
     Dim contentType As String
 
-    ' Extract filename from file path
     fileName = Mid(filePath, InStrRev(filePath, "\") + 1)
-    
-    ' Determine content type based on file extension
+
     If LCase(Right(fileName, 4)) = ".jpg" Or LCase(Right(fileName, 5)) = ".jpeg" Then
         contentType = "image/jpeg"
     ElseIf LCase(Right(fileName, 4)) = ".png" Then
@@ -212,17 +209,14 @@ Private Function UploadFileToGemini(filePath As String, apiKey As String) As Str
         contentType = "application/octet-stream"
     End If
 
-    ' Generate unique boundary
     boundary = "FormBoundary" & Format(Now, "yyyymmddhhmmss")
 
-    ' Read file as binary using ADODB.Stream
     Set fileStream = CreateObject("ADODB.Stream")
-    fileStream.Type = 1 ' Binary
+    fileStream.Type = 1
     fileStream.Open
     fileStream.LoadFromFile filePath
     fileData = fileStream.Read
 
-    ' Create multipart form data with correct content type
     Dim formData As String
     formData = "--" & boundary & vbCrLf & _
                "Content-Disposition: form-data; name=""file""; filename=""" & fileName & """" & vbCrLf & _
@@ -233,23 +227,17 @@ Private Function UploadFileToGemini(filePath As String, apiKey As String) As Str
     formDataBytes = StrConv(formData, vbFromUnicode)
     footerBytes = StrConv(vbCrLf & "--" & boundary & "--" & vbCrLf, vbFromUnicode)
 
-    ' Build full binary body
     Set requestStream = CreateObject("ADODB.Stream")
-    requestStream.Type = 1 ' Binary
+    requestStream.Type = 1
     requestStream.Open
 
-    ' Write form header
     requestStream.Write formDataBytes
-    ' Write file data
     requestStream.Write fileData
-    ' Write footer
     requestStream.Write footerBytes
     requestStream.Position = 0
 
-    ' Get total buffer from request stream
     buffer = requestStream.Read(requestStream.Size)
 
-    ' Prepare HTTP request
     Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
     http.SetTimeouts 60000, 60000, 60000, 300000
     uploadUrl = "https://generativelanguage.googleapis.com/upload/v1beta/files?key=" & apiKey
@@ -257,13 +245,11 @@ Private Function UploadFileToGemini(filePath As String, apiKey As String) As Str
     http.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & boundary
     http.Send buffer
 
-    ' Handle response
     Debug.Print "Upload Status: " & http.Status
     Debug.Print "Upload Response: " & http.responseText
     
     If http.Status = 200 Then
         response = http.responseText
-        ' Extract the URI from response
         uriStart = InStr(response, """uri"": """)
         If uriStart = 0 Then uriStart = InStr(response, """uri"":""")
         
@@ -308,8 +294,7 @@ End Function
 Private Function CreateGeminiImageRequest(fileUri As String) As String
    Dim jsonRequest As String
    Dim promptText As String
-   
-   ' Build the prompt text with proper escaping
+
    promptText = "Extract all tables from this image. Return ONLY a JSON array in this exact format: "
    promptText = promptText & "[{" & Chr(34) & "headers" & Chr(34) & ": [" & Chr(34) & "header1" & Chr(34) & ", " & Chr(34) & "header2" & Chr(34) & ", ...], "
    promptText = promptText & Chr(34) & "rows" & Chr(34) & ": [[" & Chr(34) & "value1" & Chr(34) & ", " & Chr(34) & "value2" & Chr(34) & ", ...], "
@@ -317,8 +302,7 @@ Private Function CreateGeminiImageRequest(fileUri As String) As String
    promptText = promptText & "Do not include any other text, markdown formatting, or code blocks. Each table should be a separate object in the array."
    promptText = promptText & "VERY IMPORTANT: If a signature is detected in a column like User Sign or anything of that kind, put the text SIGNATURE DETECTED in that column in each row where the signature is detected in your structure output"
    promptText = promptText & "Before sending final output, understand the data in context and recheck the output for any misalignment of columns or misplaced data, and fix those problems."
-   
-   ' Properly escape the prompt text for JSON
+
    promptText = Replace(promptText, "\", "\\")
    promptText = Replace(promptText, """", "\""")
    promptText = Replace(promptText, vbCrLf, "\n")
@@ -356,14 +340,12 @@ Private Sub LogRequestToFile(jsonRequest As String)
    Dim extractedPrompt As String
    
    filePath = "C:\Users\talgo\OneDrive\Desktop\request_log.txt"
-   
-   ' Extract just the text prompt from the JSON request
+
    promptStart = InStr(jsonRequest, """text"": """) + 9
    promptEnd = InStr(promptStart, jsonRequest, """},")
    
    If promptEnd > promptStart Then
        extractedPrompt = Mid(jsonRequest, promptStart, promptEnd - promptStart - 1)
-       ' Unescape the JSON
        extractedPrompt = Replace(extractedPrompt, "\""", """")
        extractedPrompt = Replace(extractedPrompt, "\\", "\")
        extractedPrompt = Replace(extractedPrompt, "\n", vbCrLf)
@@ -383,8 +365,7 @@ End Sub
 
 Private Function ParseGeminiResponse(response As String) As String
     On Error GoTo ErrorHandler
-    
-    ' Extract the text content from the Gemini response
+
     Dim textStart As Long, textEnd As Long
     Dim searchPattern As String
     searchPattern = """text"": """
@@ -393,8 +374,7 @@ Private Function ParseGeminiResponse(response As String) As String
     
     If textStart > 0 Then
         textStart = textStart + Len(searchPattern)
-        
-        ' Find the end of the text field - look for the closing quote before the next field
+
         Dim pos As Long, inEscape As Boolean
         pos = textStart
         inEscape = False
@@ -406,7 +386,6 @@ Private Function ParseGeminiResponse(response As String) As String
             If currentChar = "\" And Not inEscape Then
                 inEscape = True
             ElseIf currentChar = """" And Not inEscape Then
-                ' Check if this is the closing quote by looking ahead
                 If pos + 1 <= Len(response) Then
                     Dim nextChars As String
                     nextChars = Mid(response, pos + 1, 10)
@@ -425,14 +404,12 @@ Private Function ParseGeminiResponse(response As String) As String
             Dim extractedText As String
             extractedText = Mid(response, textStart, textEnd - textStart)
             
-            ' Unescape JSON characters but handle line breaks properly
             extractedText = Replace(extractedText, "\n", " ")
             extractedText = Replace(extractedText, "\r", " ")
             extractedText = Replace(extractedText, "\t", " ")
             extractedText = Replace(extractedText, "\""", """")
             extractedText = Replace(extractedText, "\\", "\")
             
-            ' Look for JSON array pattern
             Dim jsonStart As Long, jsonEnd As Long
             jsonStart = InStr(extractedText, "[")
             jsonEnd = InStrRev(extractedText, "]")
@@ -453,24 +430,20 @@ ErrorHandler:
     ParseGeminiResponse = ""
 End Function
 
-' Main testing subroutine - call this to test with existing txt file
 Private Sub TestParseFromFile(filePath As String)
     Dim fileContent As String
     Dim fileNumber As Integer
-    
-    ' Check if file exists
+
     If Dir(filePath) = "" Then
         MsgBox "File not found: " & filePath, vbCritical
         Exit Sub
     End If
-    
-    ' Read the file content
+
     fileNumber = FreeFile
     Open filePath For Input As #fileNumber
     fileContent = Input(LOF(fileNumber), fileNumber)
     Close #fileNumber
-    
-    ' Parse and populate Excel with separate sheets for each table
+
     If fileContent <> "" Then
         Dim tableCount As Integer
         tableCount = ParseGeminiDataToSeparateSheets(fileContent)
@@ -486,26 +459,21 @@ Private Sub ParseGeminiTableJSON(jsonString As String, ws As Worksheet)
     Dim currentRow As Long
     currentRow = 1
     
-    ' Parse the standardized JSON format: [{"headers": [...], "rows": [[...], [...]]}]
     Dim tableStart As Long, tableEnd As Long
     Dim pos As Long
     
     pos = 1
     
-    ' Process each table object in the array
     Do While pos < Len(jsonString)
-        ' Find the start of a table object
         tableStart = InStr(pos, jsonString, "{")
         If tableStart = 0 Then Exit Do
-        
-        ' Find the end of this table object
+
         tableEnd = FindObjectEnd(jsonString, tableStart)
         If tableEnd = 0 Then Exit Do
         
         Dim tableContent As String
         tableContent = Mid(jsonString, tableStart, tableEnd - tableStart + 1)
-        
-        ' Extract headers
+
         Dim headersStart As Long, headersEnd As Long
         headersStart = InStr(tableContent, """headers"":[")
         If headersStart = 0 Then headersStart = InStr(tableContent, """headers"": [")
@@ -520,8 +488,7 @@ Private Sub ParseGeminiTableJSON(jsonString As String, ws As Worksheet)
             If headersEnd > headersStart Then
                 Dim headersContent As String
                 headersContent = Mid(tableContent, headersStart, headersEnd - headersStart)
-                
-                ' Parse and add headers
+
                 Dim headers As Variant
                 headers = ParseJSONStringArray(headersContent)
                 
@@ -538,8 +505,7 @@ Private Sub ParseGeminiTableJSON(jsonString As String, ws As Worksheet)
                 currentRow = currentRow + 1
             End If
         End If
-        
-        ' Extract rows data
+
         Dim rowsStart As Long, rowsEnd As Long
         rowsStart = InStr(tableContent, """rows"":[")
         If rowsStart = 0 Then rowsStart = InStr(tableContent, """rows"": [")
@@ -555,15 +521,12 @@ Private Sub ParseGeminiTableJSON(jsonString As String, ws As Worksheet)
                 currentRow = ParseStandardizedTableRows(rowsContent, ws, currentRow)
             End If
         End If
-        
-        ' Add some spacing between tables if multiple tables exist
+
         If currentRow > 1 Then currentRow = currentRow + 1
-        
-        ' Move to next table
+
         pos = tableEnd + 1
     Loop
-    
-    ' If no tables were found, show a message
+
     If currentRow = 1 Then
         ws.Cells(currentRow, 1).Value = "No table data found in the response"
         ws.Cells(currentRow, 1).Font.Italic = True
@@ -583,13 +546,11 @@ Private Function ParseStandardizedTableRows(rowsContent As String, ws As Workshe
     
     Dim pos As Long
     pos = 1
-    
-    ' Process each row array - look for array patterns [...]
+
     Do While pos < Len(rowsContent)
         pos = InStr(pos, rowsContent, "[")
         If pos = 0 Then Exit Do
-        
-        ' Find the matching closing bracket for this row
+
         Dim bracketCount As Long
         Dim endPos As Long
         Dim inQuotes As Boolean
@@ -626,8 +587,7 @@ Private Function ParseStandardizedTableRows(rowsContent As String, ws As Workshe
             
             Dim rowData As Variant
             rowData = ParseJSONStringArray(rowContent)
-            
-            ' Add row data to Excel
+
             Dim j As Long
             For j = 0 To UBound(rowData)
                 If rowData(j) <> "null" And rowData(j) <> "" Then
@@ -662,11 +622,9 @@ Private Sub PopulateExcelWithGeminiData(jsonData As String)
     
     Dim ws As Worksheet
     Set ws = ActiveSheet
-    
-    ' Parse the Gemini JSON response
+
     ParseGeminiTableJSON jsonData, ws
-    
-    ' Format the sheet
+
     ws.Columns.AutoFit
     ws.Range("A1").Select
     
@@ -686,7 +644,7 @@ Private Function ParseJSONStringArray(arrayContent As String) As Variant
     Dim currentItem As String
     Dim escapeNext As Boolean
     
-    ReDim items(0 To 100) ' Start with larger array
+    ReDim items(0 To 100)
     itemCount = 0
     currentItem = ""
     inQuotes = False
@@ -697,19 +655,17 @@ Private Function ParseJSONStringArray(arrayContent As String) As Variant
         char = Mid(arrayContent, i, 1)
         
         If escapeNext Then
-            ' Handle escaped characters properly
             If char = "n" Then
-                currentItem = currentItem & " " ' Replace \n with space
+                currentItem = currentItem & " "
             ElseIf char = "r" Then
-                currentItem = currentItem & " " ' Replace \r with space
+                currentItem = currentItem & " "
             ElseIf char = "t" Then
-                currentItem = currentItem & " " ' Replace \t with space
+                currentItem = currentItem & " "
             ElseIf char = "\" Then
-                currentItem = currentItem & "\" ' Keep literal backslash
+                currentItem = currentItem & "\"
             ElseIf char = """" Then
-                currentItem = currentItem & """" ' Keep literal quote
+                currentItem = currentItem & """"
             Else
-                ' For any other escaped character, treat as literal
                 currentItem = currentItem & char
             End If
             escapeNext = False
@@ -718,12 +674,10 @@ Private Function ParseJSONStringArray(arrayContent As String) As Variant
         ElseIf char = """" Then
             inQuotes = Not inQuotes
         ElseIf char = "," And Not inQuotes Then
-            ' Clean up the current item
             currentItem = Trim(currentItem)
             If Left(currentItem, 1) = """" And Right(currentItem, 1) = """" Then
                 currentItem = Mid(currentItem, 2, Len(currentItem) - 2)
             End If
-            ' Replace any remaining backslash-based line breaks with spaces
             currentItem = Replace(currentItem, "\\n", " ")
             currentItem = Replace(currentItem, "\\r", " ")
             currentItem = Replace(currentItem, "\\", " ")
@@ -737,13 +691,11 @@ Private Function ParseJSONStringArray(arrayContent As String) As Variant
         End If
     Next i
 
-    ' Handle the last item
     If currentItem <> "" Then
         currentItem = Trim(currentItem)
         If Left(currentItem, 1) = """" And Right(currentItem, 1) = """" Then
             currentItem = Mid(currentItem, 2, Len(currentItem) - 2)
         End If
-        ' Replace any remaining backslash-based line breaks with spaces
         currentItem = Replace(currentItem, "\\n", " ")
         currentItem = Replace(currentItem, "\\r", " ")
         currentItem = Replace(currentItem, "\\", " ")
@@ -753,13 +705,13 @@ Private Function ParseJSONStringArray(arrayContent As String) As Variant
 
     ReDim Preserve items(0 To itemCount - 1)
     ParseJSONStringArray = items
-    Exit Function
+    Exit Sub
     
 ErrorHandler:
     ReDim items(0 To 0)
     items(0) = ""
     ParseJSONStringArray = items
-End Function
+End Sub
 
 Private Function FindArrayEnd(text As String, startPos As Long) As Long
     Dim bracketCount As Long
@@ -801,36 +753,29 @@ Private Function FindObjectEnd(text As String, startPos As Long) As Long
     FindObjectEnd = 0
 End Function
 
-' New function to parse JSON to a specific worksheet
 Public Sub ParseGeminiTableJSONToSheet(jsonString As String, ws As Worksheet)
     On Error GoTo ErrorHandler
-    
-    ' Clear the worksheet first
+
     ws.Cells.Clear
     
     Dim currentRow As Long
     currentRow = 1
-    
-    ' Parse the standardized JSON format: [{"headers": [...], "rows": [[...], [...]]}]
+
     Dim tableStart As Long, tableEnd As Long
     Dim pos As Long
     
     pos = 1
-    
-    ' Process each table object in the array
+
     Do While pos < Len(jsonString)
-        ' Find the start of a table object
         tableStart = InStr(pos, jsonString, "{")
         If tableStart = 0 Then Exit Do
-        
-        ' Find the end of this table object
+
         tableEnd = FindObjectEnd(jsonString, tableStart)
         If tableEnd = 0 Then Exit Do
         
         Dim tableContent As String
         tableContent = Mid(jsonString, tableStart, tableEnd - tableStart + 1)
-        
-        ' Extract headers
+
         Dim headersStart As Long, headersEnd As Long
         headersStart = InStr(tableContent, """headers"":[")
         If headersStart = 0 Then headersStart = InStr(tableContent, """headers"": [")
@@ -845,8 +790,7 @@ Public Sub ParseGeminiTableJSONToSheet(jsonString As String, ws As Worksheet)
             If headersEnd > headersStart Then
                 Dim headersContent As String
                 headersContent = Mid(tableContent, headersStart, headersEnd - headersStart)
-                
-                ' Parse and add headers
+
                 Dim headers As Variant
                 headers = ParseJSONStringArray(headersContent)
                 
@@ -863,8 +807,7 @@ Public Sub ParseGeminiTableJSONToSheet(jsonString As String, ws As Worksheet)
                 currentRow = currentRow + 1
             End If
         End If
-        
-        ' Extract rows data
+
         Dim rowsStart As Long, rowsEnd As Long
         rowsStart = InStr(tableContent, """rows"":[")
         If rowsStart = 0 Then rowsStart = InStr(tableContent, """rows"": [")
@@ -880,21 +823,17 @@ Public Sub ParseGeminiTableJSONToSheet(jsonString As String, ws As Worksheet)
                 currentRow = ParseStandardizedTableRows(rowsContent, ws, currentRow)
             End If
         End If
-        
-        ' Add some spacing between tables if multiple tables exist on same sheet
+
         If currentRow > 1 Then currentRow = currentRow + 1
-        
-        ' Move to next table
+
         pos = tableEnd + 1
     Loop
-    
-    ' If no tables were found, show a message
+
     If currentRow = 1 Then
         ws.Cells(currentRow, 1).Value = "No table data found in the response"
         ws.Cells(currentRow, 1).Font.Italic = True
     End If
-    
-    ' Format the sheet
+
     ws.Columns.AutoFit
     ws.Range("A1").Select
     
@@ -904,7 +843,6 @@ ErrorHandler:
     MsgBox "Error parsing Gemini table JSON to sheet: " & Err.Description, vbCritical
 End Sub
 
-' Updated testing function for multiple sheets
 Public Sub TestParseMultipleFiles()
     Dim basePath As String
     Dim pageNum As Integer
@@ -913,17 +851,14 @@ Public Sub TestParseMultipleFiles()
     
     basePath = "C:\Users\talgo\OneDrive\Desktop\output_page_"
     pageNum = 1
-    
-    ' Loop through numbered output files
+
     Do
         filePath = basePath & pageNum & ".txt"
         
         If Dir(filePath) = "" Then Exit Do
-        
-        ' Create worksheet for this page
+
         Set ws = GetOrCreateWorksheet("Page_" & pageNum)
-        
-        ' Read and parse file
+
         Dim fileContent As String
         Dim fileNumber As Integer
         
@@ -946,66 +881,53 @@ Public Sub TestParseMultipleFiles()
     End If
 End Sub
 
-' Helper function for testing module
 Private Function GetOrCreateWorksheet(sheetName As String) As Worksheet
     Dim ws As Worksheet
-    
-    ' Check if sheet already exists
+
     On Error Resume Next
     Set ws = ThisWorkbook.Worksheets(sheetName)
     On Error GoTo 0
     
-    ' If sheet doesn't exist, create it
     If ws Is Nothing Then
         Set ws = ThisWorkbook.Worksheets.Add
         ws.Name = sheetName
     Else
-        ' Clear existing content
         ws.Cells.Clear
     End If
     
     Set GetOrCreateWorksheet = ws
 End Function
 
-' New function to parse JSON and create separate sheets for each table
 Private Function ParseGeminiDataToSeparateSheets(jsonData As String) As Integer
     On Error GoTo ErrorHandler
     
     Dim tableCount As Integer
     tableCount = 0
     
-    ' Parse the standardized JSON format: [{"headers": [...], "rows": [[...], [...]]}]
     Dim tableStart As Long, tableEnd As Long
     Dim pos As Long
     
     pos = 1
     
-    ' Process each table object in the array
     Do While pos < Len(jsonData)
-        ' Find the start of a table object
         tableStart = InStr(pos, jsonData, "{")
         If tableStart = 0 Then Exit Do
-        
-        ' Find the end of this table object
+
         tableEnd = FindObjectEnd(jsonData, tableStart)
         If tableEnd = 0 Then Exit Do
         
         Dim tableContent As String
         tableContent = Mid(jsonData, tableStart, tableEnd - tableStart + 1)
-        
-        ' Create a new worksheet for this table
+
         tableCount = tableCount + 1
         Dim ws As Worksheet
         Set ws = GetOrCreateWorksheet("Table_" & tableCount)
-        
-        ' Parse this single table to the worksheet
+
         ParseSingleTableToSheet tableContent, ws
-        
-        ' Move to next table
+
         pos = tableEnd + 1
     Loop
-    
-    ' If no tables were found, create a single sheet with error message
+
     If tableCount = 0 Then
         Set ws = GetOrCreateWorksheet("No_Data")
         ws.Cells(1, 1).Value = "No table data found in the response"
@@ -1021,17 +943,14 @@ ErrorHandler:
     ParseGeminiDataToSeparateSheets = 0
 End Function
 
-' Function to parse a single table object to a worksheet
 Private Sub ParseSingleTableToSheet(tableContent As String, ws As Worksheet)
     On Error GoTo ErrorHandler
     
-    ' Clear the worksheet first
     ws.Cells.Clear
     
     Dim currentRow As Long
     currentRow = 1
     
-    ' Extract headers
     Dim headersStart As Long, headersEnd As Long
     headersStart = InStr(tableContent, """headers"":[")
     If headersStart = 0 Then headersStart = InStr(tableContent, """headers"": [")
@@ -1047,7 +966,6 @@ Private Sub ParseSingleTableToSheet(tableContent As String, ws As Worksheet)
             Dim headersContent As String
             headersContent = Mid(tableContent, headersStart, headersEnd - headersStart)
             
-            ' Parse and add headers
             Dim headers As Variant
             headers = ParseJSONStringArray(headersContent)
             
@@ -1065,7 +983,6 @@ Private Sub ParseSingleTableToSheet(tableContent As String, ws As Worksheet)
         End If
     End If
     
-    ' Extract rows data
     Dim rowsStart As Long, rowsEnd As Long
     rowsStart = InStr(tableContent, """rows"":[")
     If rowsStart = 0 Then rowsStart = InStr(tableContent, """rows"": [")
@@ -1082,13 +999,11 @@ Private Sub ParseSingleTableToSheet(tableContent As String, ws As Worksheet)
         End If
     End If
     
-    ' If no data was found, show a message
     If currentRow = 1 Then
         ws.Cells(currentRow, 1).Value = "No table data found in this table object"
         ws.Cells(currentRow, 1).Font.Italic = True
     End If
     
-    ' Format the sheet
     ws.Columns.AutoFit
     ws.Range("A1").Select
     
