@@ -1,16 +1,8 @@
-opencv-python
 pandas
-paddleocr
-paddlepaddle
-transformers
-Pillow
-pix2text
+pillow
 google-generativeai
 python-dotenv
 pdf2image
-pytesseract
-easyocr
 openpyxl
-requests
 flask
 werkzeug
