@@ -8,7 +8,6 @@ pix2text
 google-generativeai
 python-dotenv
 pdf2image
-opencv-python
 pytesseract
 easyocr
 openpyxl
