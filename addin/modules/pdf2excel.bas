@@ -219,6 +219,7 @@ Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey
     Dim file As Object
     Dim combinedData As String
     Dim pageNum As Integer
+    Dim imageCount As Integer
     
     LogInfo "Starting table extraction from images in folder: " & imageFolder
 
@@ -1013,6 +1014,8 @@ Private Function ParseGeminiDataToSeparateSheets(jsonData As String) As Integer
     Dim tableStart As Long, tableEnd As Long
     Dim pos As Long
     
+    LogInfo "Starting ParseGeminiDataToSeparateSheets"
+    
     pos = 1
     
     Do While pos < Len(jsonData)
@@ -1026,6 +1029,7 @@ Private Function ParseGeminiDataToSeparateSheets(jsonData As String) As Integer
         tableContent = Mid(jsonData, tableStart, tableEnd - tableStart + 1)
 
         tableCount = tableCount + 1
+        LogInfo "Page " & tableCount & " converted to Excel sheet"
         Dim ws As Worksheet
         Set ws = GetOrCreateWorksheet("Table_" & tableCount)
 
@@ -1045,6 +1049,7 @@ Private Function ParseGeminiDataToSeparateSheets(jsonData As String) As Integer
     Exit Function
     
 ErrorHandler:
+    LogError "Error parsing Gemini data to separate sheets: " & Err.Description
     MsgBox "Error parsing Gemini data to separate sheets: " & Err.Description, vbCritical
     ParseGeminiDataToSeparateSheets = 0
 End Function
