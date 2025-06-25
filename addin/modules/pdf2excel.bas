@@ -1,4 +1,7 @@
-Private Const LOG_FILE_PATH As String = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\pdf_processing.log"
+Private BASE_RUN_FOLDER As String
+Private IMAGE_FOLDER As String
+Private OUTPUT_FOLDER As String
+Private LOG_FILE_PATH As String
 
 Public Enum LogLevel
     Info = 1
@@ -13,6 +16,32 @@ Public ribbon As IRibbonUI
 
 Public Sub RibbonOnLoad(ribbonUI As IRibbonUI)
     Set ribbon = ribbonUI
+End Sub
+
+Private Sub InitRunFolders()
+
+    Dim basePath As String
+    Dim runIndex As Integer
+    Dim runFolder As String
+
+    basePath = "C:\IOCL_OCR\Run_"
+    runIndex = 1
+
+    Do
+        runFolder = basePath & Format(runIndex, "000")
+        If Dir(runFolder, vbDirectory) = "" Then Exit Do
+        runIndex = runIndex + 1
+    Loop
+
+    MkDir runFolder
+    MkDir runFolder & "\images"
+    MkDir runFolder & "\output"
+
+    BASE_RUN_FOLDER = runFolder
+    IMAGE_FOLDER = runFolder & "\images"
+    OUTPUT_FOLDER = runFolder & "\output"
+    LOG_FILE_PATH = runFolder & "\pdf_processing.log"
+
 End Sub
 
 Public Sub WriteLog(message As String, Optional level As LogLevel = LogLevel.Info)
@@ -99,6 +128,8 @@ End Sub
 
 Public Sub PDFToExcel(control As IRibbonControl)
 
+    InitRunFolders
+
     Dim pdfPath As String
     Dim imageFolder As String
     Dim shellCmd As String
@@ -113,7 +144,7 @@ Public Sub PDFToExcel(control As IRibbonControl)
         Exit Sub
     End If
 
-    imageFolder = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\pdf_images"
+    imageFolder = IMAGE_FOLDER
 
     LogDebug "PDF path: " & pdfPath
     LogDebug "Image folder: " & imageFolder
@@ -176,9 +207,9 @@ Private Sub ConvertPDFToExcel(imageFolder As String)
 
     LogInfo "Starting ConvertPDFToExcel process"
     
-    apiKey = "AIzaSyA78zCKSrZHcRLB1nvhPJuDPqFeHT8Iu4Q"
+    apiKey = "AIzaSyDRzpEHgPS7LRqDRmPx-mEXY-Cukyqr-o4"
 
-    imageFolder = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\pdf_images"
+    imageFolder = IMAGE_FOLDER
     
     If Right(imageFolder, 1) <> "\" Then
         imageFolder = imageFolder & "\"
@@ -194,7 +225,7 @@ Private Sub ConvertPDFToExcel(imageFolder As String)
     Dim filePath As String
     Dim fileNumber As Integer
     
-    filePath = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\output\output.txt"
+    filePath = OUTPUT_FOLDER & "\output.txt"
     LogDebug "Saving extracted data to: " & filePath
     
     fileNumber = FreeFile
@@ -1013,11 +1044,11 @@ Private Function GetOrCreateWorksheet(sheetName As String) As Worksheet
     End If
 
     On Error Resume Next
-    Set ws = ThisWorkbook.Worksheets(sheetName)
+    Set ws = ActiveWorkbook.Worksheets(sheetName)
     On Error GoTo 0
 
     If ws Is Nothing Then
-        Set ws = ThisWorkbook.Worksheets.Add
+        Set ws = ActiveWorkbook.Worksheets.Add
         ws.Name = sheetName
     Else
         ws.Cells.Clear
