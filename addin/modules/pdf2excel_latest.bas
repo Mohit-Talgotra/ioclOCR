@@ -1,4 +1,7 @@
-Private Const LOG_FILE_PATH As String = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\pdf_processing.log"
+Private BASE_RUN_FOLDER As String
+Private IMAGE_FOLDER As String
+Private OUTPUT_FOLDER As String
+Private LOG_FILE_PATH As String
 
 Public Enum LogLevel
     Info = 1
@@ -13,6 +16,32 @@ Public ribbon As IRibbonUI
 
 Public Sub RibbonOnLoad(ribbonUI As IRibbonUI)
     Set ribbon = ribbonUI
+End Sub
+
+Private Sub InitRunFolders()
+
+    Dim basePath As String
+    Dim runIndex As Integer
+    Dim runFolder As String
+
+    basePath = "C:\IOCL_OCR\Run_"
+    runIndex = 1
+
+    Do
+        runFolder = basePath & Format(runIndex, "000")
+        If Dir(runFolder, vbDirectory) = "" Then Exit Do
+        runIndex = runIndex + 1
+    Loop
+
+    MkDir runFolder
+    MkDir runFolder & "\images"
+    MkDir runFolder & "\output"
+
+    BASE_RUN_FOLDER = runFolder
+    IMAGE_FOLDER = runFolder & "\images"
+    OUTPUT_FOLDER = runFolder & "\output"
+    LOG_FILE_PATH = runFolder & "\pdf_processing.log"
+
 End Sub
 
 Public Sub WriteLog(message As String, Optional level As LogLevel = LogLevel.Info)
@@ -99,6 +128,8 @@ End Sub
 
 Public Sub PDFToExcel(control As IRibbonControl)
 
+    InitRunFolders
+
     Dim pdfPath As String
     Dim imageFolder As String
     Dim shellCmd As String
@@ -113,7 +144,7 @@ Public Sub PDFToExcel(control As IRibbonControl)
         Exit Sub
     End If
 
-    imageFolder = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\pdf_images"
+    imageFolder = IMAGE_FOLDER
 
     LogDebug "PDF path: " & pdfPath
     LogDebug "Image folder: " & imageFolder
@@ -176,9 +207,10 @@ Private Sub ConvertPDFToExcel(imageFolder As String)
 
     LogInfo "Starting ConvertPDFToExcel process"
     
-    apiKey = "AIzaSyA78zCKSrZHcRLB1nvhPJuDPqFeHT8Iu4Q"
+    apiKey = "AIzaSyDRzpEHgPS7LRqDRmPx-mEXY-Cukyqr-o4"
 
-    imageFolder = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\pdf_images"
+    imageFolder = IMAGE_FOLDER
+
     
     If Right(imageFolder, 1) <> "\" Then
         imageFolder = imageFolder & "\"
@@ -194,7 +226,7 @@ Private Sub ConvertPDFToExcel(imageFolder As String)
     Dim filePath As String
     Dim fileNumber As Integer
     
-    filePath = "C:\Users\talgo\AppData\Roaming\Microsoft\AddIns\output\output.txt"
+    filePath = OUTPUT_FOLDER & "\output.txt"
     LogDebug "Saving extracted data to: " & filePath
     
     fileNumber = FreeFile
@@ -213,11 +245,101 @@ Private Sub ConvertPDFToExcel(imageFolder As String)
     LogInfo "ConvertPDFToExcel process completed"
 End Sub
 
+Private Function RecheckGeminiOutput(imagePath As String, rawExtractedText As String, apiKey As String) As String
+    Dim fileUri As String
+    Dim jsonRequest As String
+    Dim http As Object
+    Dim responseText As String
+    Dim attempt As Integer
+    Dim maxAttempts As Integer
+
+    fileUri = UploadFileToGemini(imagePath, apiKey)
+    If fileUri = "" Then
+        LogError "Recheck: Failed to upload file for verification: " & imagePath
+        RecheckGeminiOutput = rawExtractedText
+        Exit Function
+    End If
+
+    Dim promptText As String
+    promptText = "Here is a previously extracted table structure. Double-check it carefully against the image and fix any column misalignment, misplaced values, or misinterpretations:" & vbCrLf & _
+                 rawExtractedText & vbCrLf & _
+                 "Correct only the structure and values to match the image. Return ONLY the corrected table in the same JSON format as before."
+
+    promptText = Replace(promptText, "\", "\\")
+    promptText = Replace(promptText, """", "\""")
+    promptText = Replace(promptText, vbCrLf, "\n")
+
+    jsonRequest = "{" & _
+        """contents"": [" & _
+            "{" & _
+                """role"": ""user""," & _
+                """parts"": [" & _
+                    "{" & _
+                        """text"": """ & promptText & """" & _
+                    "}," & _
+                    "{" & _
+                        """file_data"": {" & _
+                            """mime_type"": ""image/jpeg""," & _
+                            """file_uri"": """ & fileUri & """" & _
+                        "}" & _
+                    "}" & _
+                "]" & _
+            "}" & _
+        "]" & _
+    "}"
+
+    ' Add retry logic similar to ProcessImagePageWithGemini
+    maxAttempts = 3
+    attempt = 1
+
+    Do While attempt <= maxAttempts
+        Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
+        http.SetTimeouts 60000, 60000, 60000, 300000
+        http.Open "POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" & apiKey, False
+        http.SetRequestHeader "Content-Type", "application/json"
+        http.Send jsonRequest
+
+        responseText = http.responseText
+        LogDebug "Recheck attempt " & attempt & " — Gemini API response status: " & http.Status
+
+        If http.Status = 200 Then
+            LogInfo "Recheck: Gemini API call successful for image: " & imagePath
+            RecheckGeminiOutput = ParseGeminiResponse(responseText)
+            Set http = Nothing
+            Exit Function
+
+        ElseIf http.Status = 503 Then
+            LogWarning "Recheck: Gemini model overloaded. Retrying in 5 seconds... Attempt " & attempt
+            Application.Wait Now + TimeValue("00:00:05")
+            attempt = attempt + 1
+
+        ElseIf http.Status = 429 Then
+            ' Rate limit exceeded - wait longer
+            LogWarning "Recheck: Rate limit exceeded. Retrying in 10 seconds... Attempt " & attempt
+            Application.Wait Now + TimeValue("00:00:10")
+            attempt = attempt + 1
+
+        Else
+            LogError "Recheck: Gemini API Error for image " & imagePath & ": " & http.Status & " - " & http.StatusText
+            LogError "Recheck Response: " & responseText
+            ' For other errors, don't retry - return original
+            RecheckGeminiOutput = rawExtractedText
+            Set http = Nothing
+            Exit Function
+        End If
+
+        Set http = Nothing
+    Loop
+
+    ' If all retries failed, return original text
+    LogWarning "Recheck: All retry attempts failed for image: " & imagePath & ". Using original output."
+    RecheckGeminiOutput = rawExtractedText
+End Function
 Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey As String) As String
     Dim fso As Object
     Dim folder As Object
     Dim file As Object
-    Dim combinedData As String
+    Dim combinedTables As String
     Dim pageNum As Integer
     Dim imageCount As Integer
     
@@ -243,11 +365,13 @@ Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey
         If LCase(fso.GetExtensionName(file.Name)) = "jpg" Then
             imageCount = imageCount + 1
         End If
+        Application.Wait Now + TimeValue("00:00:01") ' wait 1 second between pages
     Next file
     
     LogInfo "Found " & imageCount & " image files to process"
 
     pageNum = 1
+    combinedTables = "" ' Initialize as empty string
 
     For Each file In folder.Files
         If LCase(fso.GetExtensionName(file.Name)) = "jpg" Then
@@ -255,7 +379,22 @@ Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey
             Dim pageResponse As String
             pageResponse = ProcessImagePageWithGemini(file.Path, apiKey)
             If pageResponse <> "" Then
-                combinedData = combinedData & pageResponse & vbCrLf
+
+                Dim refinedResponse As String
+                refinedResponse = RecheckGeminiOutput(file.Path, pageResponse, apiKey)
+                
+                ' Parse the JSON array and extract individual table objects
+                Dim tableObjects As String
+                tableObjects = ExtractTableObjectsFromJSON(refinedResponse)
+                
+                If tableObjects <> "" Then
+                    If combinedTables = "" Then
+                        combinedTables = tableObjects
+                    Else
+                        combinedTables = combinedTables & vbCrLf & tableObjects
+                    End If
+                End If
+
                 LogInfo "Successfully extracted data from page " & pageNum
             Else
                 LogWarning "No data extracted from page " & pageNum & ": " & file.Name
@@ -265,7 +404,58 @@ Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey
     Next file
     
     LogInfo "Completed processing all images. Total pages processed: " & (pageNum - 1)
-    ExtractTablesWithGeminiFromImages = combinedData
+    ExtractTablesWithGeminiFromImages = combinedTables
+End Function
+
+Private Function ExtractTableObjectsFromJSON(jsonResponse As String) As String
+    On Error GoTo ErrorHandler
+    
+    Dim result As String
+    result = ""
+    
+    ' Remove any leading/trailing whitespace and newlines
+    jsonResponse = Trim(jsonResponse)
+    
+    ' Check if the response starts with [ (JSON array)
+    If Left(jsonResponse, 1) = "[" And Right(jsonResponse, 1) = "]" Then
+        ' Extract content between the outer brackets
+        Dim innerContent As String
+        innerContent = Mid(jsonResponse, 2, Len(jsonResponse) - 2)
+        
+        ' Find individual table objects within the array
+        Dim pos As Long
+        Dim objStart As Long
+        Dim objEnd As Long
+        pos = 1
+        
+        Do While pos <= Len(innerContent)
+            objStart = InStr(pos, innerContent, "{")
+            If objStart = 0 Then Exit Do
+            
+            objEnd = FindObjectEnd(innerContent, objStart)
+            If objEnd = 0 Then Exit Do
+            
+            Dim tableObject As String
+            tableObject = Mid(innerContent, objStart, objEnd - objStart + 1)
+            
+            If result = "" Then
+                result = tableObject
+            Else
+                result = result & vbCrLf & tableObject
+            End If
+            
+            pos = objEnd + 1
+        Loop
+    Else
+        ' If it's already a single object or malformed, return as is
+        result = jsonResponse
+    End If
+    
+    ExtractTableObjectsFromJSON = result
+    Exit Function
+    
+ErrorHandler:
+    ExtractTableObjectsFromJSON = jsonResponse
 End Function
 
 Private Function ProcessImagePageWithGemini(imagePath As String, apiKey As String) As String
@@ -273,44 +463,72 @@ Private Function ProcessImagePageWithGemini(imagePath As String, apiKey As Strin
     Dim jsonRequest As String
     Dim responseText As String
     Dim http As Object
-    
+    Dim attempt As Integer
+    Dim maxAttempts As Integer
+
     LogDebug "Starting Gemini API processing for image: " & imagePath
-    
-    LogDebug "Uploading file to Gemini..."
+
     fileUri = UploadFileToGemini(imagePath, apiKey)
     If fileUri = "" Then
         LogError "Failed to upload file to Gemini: " & imagePath
         Exit Function
     End If
-    
-    LogDebug "File uploaded successfully. URI: " & fileUri
-    
+
     jsonRequest = CreateGeminiImageRequest(fileUri)
     LogDebug "Created Gemini API request"
 
-    Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
-    http.SetTimeouts 60000, 60000, 60000, 300000
-    http.Open "POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" & apiKey, False
-    http.SetRequestHeader "Content-Type", "application/json"
-    
-    LogDebug "Sending request to Gemini API..."
-    http.Send jsonRequest
+    maxAttempts = 3
+    attempt = 1
 
-    responseText = http.responseText
-    LogDebug "Received response from Gemini API. Status: " & http.Status
-    
-    If http.Status = 200 Then
-        LogInfo "Gemini API call successful for image: " & imagePath
-        ProcessImagePageWithGemini = ParseGeminiResponse(responseText)
-    Else
-        LogError "Gemini API Error for image " & imagePath & ": " & http.Status & " - " & http.StatusText
-        LogError "Response: " & responseText
-        ProcessImagePageWithGemini = ""
-    End If
+    Do While attempt <= maxAttempts
+        Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
+        http.SetTimeouts 60000, 60000, 60000, 300000
+        http.Open "POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" & apiKey, False
+        http.SetRequestHeader "Content-Type", "application/json"
+        http.Send jsonRequest
 
-    Set http = Nothing
+        responseText = http.responseText
+        LogDebug "Attempt " & attempt & " — Gemini API response status: " & http.Status
+
+        If http.Status = 200 Then
+            LogInfo "Gemini API call successful for image: " & imagePath
+            ProcessImagePageWithGemini = ParseGeminiResponse(responseText)
+            Set http = Nothing
+            Exit Function
+
+        ElseIf http.Status = 503 Then
+            LogWarning "Gemini model overloaded. Retrying in 5 seconds... Attempt " & attempt
+            Application.Wait Now + TimeValue("00:00:05")
+            attempt = attempt + 1
+
+        ElseIf http.Status = 429 Then
+            ' Rate limit exceeded - wait longer
+            LogWarning "Rate limit exceeded. Retrying in 10 seconds... Attempt " & attempt
+            Application.Wait Now + TimeValue("00:00:10")
+            attempt = attempt + 1
+
+        ElseIf http.Status = 500 Or http.Status = 502 Or http.Status = 504 Then
+            ' Server errors - retry with exponential backoff
+            Dim waitTime As Integer
+            waitTime = 5 * (2 ^ (attempt - 1)) ' Exponential backoff: 5, 10, 20 seconds
+            LogWarning "Server error " & http.Status & ". Retrying in " & waitTime & " seconds... Attempt " & attempt
+            Application.Wait Now + TimeValue("00:00:" & Format(waitTime, "00"))
+            attempt = attempt + 1
+
+        Else
+            LogError "Gemini API Error for image " & imagePath & ": " & http.Status & " - " & http.StatusText
+            LogError "Response: " & responseText
+            ProcessImagePageWithGemini = ""
+            Set http = Nothing
+            Exit Function
+        End If
+
+        Set http = Nothing
+    Loop
+
+    LogError "Gemini API failed after " & maxAttempts & " attempts for image: " & imagePath
+    ProcessImagePageWithGemini = ""
 End Function
-
 Private Function UploadFileToGemini(filePath As String, apiKey As String) As String
     On Error GoTo ErrorHandler
 
@@ -990,41 +1208,25 @@ End Sub
 
 Private Function GetOrCreateWorksheet(sheetName As String) As Worksheet
     Dim ws As Worksheet
-    Dim protectedNames As Variant
-    protectedNames = Array("Dashboard", "Summary", "Charts") ' Add your custom sheets here
 
-    Dim nameIsProtected As Boolean
-    nameIsProtected = False
+    ' Try to find an existing sheet
+    On Error Resume Next
+    Set ws = ActiveWorkbook.Worksheets(sheetName)
+    On Error GoTo 0
 
-    Dim i As Integer
-    For i = LBound(protectedNames) To UBound(protectedNames)
-
-        If StrComp(sheetName, protectedNames(i), vbTextCompare) = 0 Then
-            nameIsProtected = True
-            Exit For
-        End If
-
-    Next i
-
-    If nameIsProtected Then
-        MsgBox "Refused to overwrite protected sheet: " & sheetName, vbExclamation
-        Set GetOrCreateWorksheet = Nothing
+    ' If it exists, clear it and reuse it instead of skipping
+    If Not ws Is Nothing Then
+        LogInfo "Sheet '" & sheetName & "' already exists. Clearing and reusing."
+        ws.Cells.Clear
+        Set GetOrCreateWorksheet = ws
         Exit Function
     End If
 
-    On Error Resume Next
-    Set ws = ThisWorkbook.Worksheets(sheetName)
-    On Error GoTo 0
-
-    If ws Is Nothing Then
-        Set ws = ThisWorkbook.Worksheets.Add
-        ws.Name = sheetName
-    Else
-        ws.Cells.Clear
-    End If
+    ' Otherwise, safely create the sheet
+    Set ws = ActiveWorkbook.Worksheets.Add
+    ws.Name = sheetName
 
     Set GetOrCreateWorksheet = ws
-
 End Function
 
 Private Function ParseGeminiDataToSeparateSheets(jsonData As String) As Integer
@@ -1033,34 +1235,71 @@ Private Function ParseGeminiDataToSeparateSheets(jsonData As String) As Integer
     Dim tableCount As Integer
     tableCount = 0
     
-    Dim tableStart As Long, tableEnd As Long
-    Dim pos As Long
-    
     LogInfo "Starting ParseGeminiDataToSeparateSheets"
     
-    pos = 1
+    ' Split the combined data by line breaks to get individual table objects
+    Dim lines() As String
+    lines = Split(jsonData, vbCrLf)
+    Dim i As Integer
+    For i = 0 To UBound(lines)
+        LogInfo lines(i)
+    Next i
     
-    Do While pos < Len(jsonData)
-        tableStart = InStr(pos, jsonData, "{")
-        If tableStart = 0 Then Exit Do
-
-        tableEnd = FindObjectEnd(jsonData, tableStart)
-        If tableEnd = 0 Then Exit Do
-        
+    Dim j As Integer
+    For j = 0 To UBound(lines)
         Dim tableContent As String
-        tableContent = Mid(jsonData, tableStart, tableEnd - tableStart + 1)
-
-        tableCount = tableCount + 1
-        LogInfo "Page " & tableCount & " converted to Excel sheet"
-        Dim ws As Worksheet
-        Set ws = GetOrCreateWorksheet("Table_" & tableCount)
-
-        ParseSingleTableToSheet tableContent, ws
-
-        pos = tableEnd + 1
-    Loop
+        tableContent = Trim(lines(j))
+        
+        ' Skip empty lines
+        If tableContent <> "" Then
+            ' Check if this line contains a valid table object
+            If Left(tableContent, 1) = "{" And Right(tableContent, 1) = "}" Then
+                tableCount = tableCount + 1
+                LogInfo "Processing table " & tableCount
+                
+                Dim ws As Worksheet
+                Set ws = GetOrCreateWorksheet("Table_" & tableCount)
+                
+                If Not ws Is Nothing Then
+                    ParseSingleTableToSheet tableContent, ws
+                End If
+            End If
+        End If
+    Next j
 
     If tableCount = 0 Then
+        ' Fallback: try to parse as single combined JSON
+        Dim pos As Long
+        pos = 1
+        
+        Do While pos < Len(jsonData)
+            Dim tableStart As Long
+            tableStart = InStr(pos, jsonData, "{")
+            If tableStart = 0 Then Exit Do
+
+            Dim tableEnd As Long
+            tableEnd = FindObjectEnd(jsonData, tableStart)
+            If tableEnd = 0 Then Exit Do
+            
+            ' Dim tableContent As String
+            tableContent = Mid(jsonData, tableStart, tableEnd - tableStart + 1)
+
+            tableCount = tableCount + 1
+            LogInfo "Fallback: Processing table " & tableCount
+            
+            ' Dim ws As Worksheet
+            Set ws = GetOrCreateWorksheet("Table_" & tableCount)
+            
+            If Not ws Is Nothing Then
+                ParseSingleTableToSheet tableContent, ws
+            End If
+
+            pos = tableEnd + 1
+        Loop
+    End If
+
+    If tableCount = 0 Then
+        ' Dim ws As Worksheet
         Set ws = GetOrCreateWorksheet("No_Data")
         ws.Cells(1, 1).Value = "No table data found in the response"
         ws.Cells(1, 1).Font.Italic = True
