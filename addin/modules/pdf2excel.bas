@@ -35,11 +35,10 @@ Private Sub InitRunFolders()
 
     MkDir runFolder
     MkDir runFolder & "\images"
-    MkDir runFolder & "\output"
 
     BASE_RUN_FOLDER = runFolder
     IMAGE_FOLDER = runFolder & "\images"
-    OUTPUT_FOLDER = runFolder & "\output"
+    OUTPUT_FOLDER = runFolder & "\output.json"
     LOG_FILE_PATH = runFolder & "\pdf_processing.log"
 
 End Sub
@@ -77,7 +76,6 @@ Public Sub WriteLog(message As String, Optional level As LogLevel = LogLevel.Inf
 
     Close #fileNumber
 
-    Debug.Print logEntry
 End Sub
 
 Public Sub LogInfo(message As String)
@@ -225,7 +223,7 @@ Private Sub ConvertPDFToExcel(imageFolder As String)
     Dim filePath As String
     Dim fileNumber As Integer
     
-    filePath = OUTPUT_FOLDER & "\output.txt"
+    filePath = OUTPUT_FOLDER
     LogDebug "Saving extracted data to: " & filePath
     
     fileNumber = FreeFile
@@ -251,7 +249,8 @@ Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey
     Dim combinedData As String
     Dim pageNum As Integer
     Dim imageCount As Integer
-    
+    Dim tableCount As Integer
+
     LogInfo "Starting table extraction from images in folder: " & imageFolder
 
     Set fso = CreateObject("Scripting.FileSystemObject")
@@ -261,32 +260,46 @@ Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey
         MsgBox "Selected folder does not exist or is inaccessible.", vbCritical
         Exit Function
     End If
-    
+
     Set folder = fso.GetFolder(imageFolder)
     If folder Is Nothing Then
         LogError "Failed to access folder."
         MsgBox "Failed to access folder.", vbCritical
         Exit Function
     End If
-    
+
     imageCount = 0
     For Each file In folder.Files
         If LCase(fso.GetExtensionName(file.Name)) = "jpg" Then
             imageCount = imageCount + 1
         End If
     Next file
-    
+
     LogInfo "Found " & imageCount & " image files to process"
 
     pageNum = 1
+    combinedData = "["
 
     For Each file In folder.Files
         If LCase(fso.GetExtensionName(file.Name)) = "jpg" Then
             LogInfo "Processing page " & pageNum & " of " & imageCount & ": " & file.Name
             Dim pageResponse As String
             pageResponse = ProcessImagePageWithGemini(file.Path, apiKey)
+
             If pageResponse <> "" Then
-                combinedData = combinedData & pageResponse & vbCrLf
+                ' Clean line breaks
+                pageResponse = Trim(pageResponse)
+                If Left(pageResponse, 1) = "[" And Right(pageResponse, 1) = "]" Then
+                    pageResponse = Mid(pageResponse, 2, Len(pageResponse) - 2)
+                End If
+
+                If tableCount > 0 Then
+                    combinedData = combinedData & "," & vbCrLf
+                End If
+
+                combinedData = combinedData & pageResponse
+                tableCount = tableCount + 1
+
                 LogInfo "Successfully extracted data from page " & pageNum
             Else
                 LogWarning "No data extracted from page " & pageNum & ": " & file.Name
@@ -294,7 +307,9 @@ Private Function ExtractTablesWithGeminiFromImages(imageFolder As String, apiKey
             pageNum = pageNum + 1
         End If
     Next file
-    
+
+    combinedData = combinedData & "]"
+
     LogInfo "Completed processing all images. Total pages processed: " & (pageNum - 1)
     ExtractTablesWithGeminiFromImages = combinedData
 End Function
@@ -408,9 +423,6 @@ Private Function UploadFileToGemini(filePath As String, apiKey As String) As Str
     http.Open "POST", uploadUrl, False
     http.SetRequestHeader "Content-Type", "multipart/form-data; boundary=" & boundary
     http.Send buffer
-
-    Debug.Print "Upload Status: " & http.Status
-    Debug.Print "Upload Response: " & http.responseText
     
     If http.Status = 200 Then
         response = http.responseText
@@ -425,7 +437,6 @@ Private Function UploadFileToGemini(filePath As String, apiKey As String) As Str
             uriEnd = InStr(uriStart, response, """")
             If uriEnd > uriStart Then
                 UploadFileToGemini = Mid(response, uriStart, uriEnd - uriStart)
-                Debug.Print "Extracted URI: " & UploadFileToGemini
                 GoTo Cleanup
             End If
         End If
@@ -456,43 +467,49 @@ ErrorHandler:
 End Function
 
 Private Function CreateGeminiImageRequest(fileUri As String) As String
-   Dim jsonRequest As String
-   Dim promptText As String
+    Dim jsonRequest As String
+    Dim promptText As String
 
-   promptText = "Extract all tables from this image. Return ONLY a JSON array in this exact format: "
-   promptText = promptText & "[{" & Chr(34) & "headers" & Chr(34) & ": [" & Chr(34) & "header1" & Chr(34) & ", " & Chr(34) & "header2" & Chr(34) & ", ...], "
-   promptText = promptText & Chr(34) & "rows" & Chr(34) & ": [[" & Chr(34) & "value1" & Chr(34) & ", " & Chr(34) & "value2" & Chr(34) & ", ...], "
-   promptText = promptText & "[" & Chr(34) & "value1" & Chr(34) & ", " & Chr(34) & "value2" & Chr(34) & ", ...], ...]}]. "
-   promptText = promptText & "Do not include any other text, markdown formatting, or code blocks. Each table should be a separate object in the array."
-   promptText = promptText & "VERY IMPORTANT: If a signature is detected in a column like User Sign or anything of that kind, put the text SIGNATURE DETECTED in that column in each row where the signature is detected in your structure output"
-   promptText = promptText & "Before sending final output, understand the data in context and recheck the output for any misalignment of columns or misplaced data, and fix those problems."
+    promptText = "Extract all tables from this image. Respond with ONLY a raw JSON array in this EXACT format: " & _
+        "[{" & Chr(34) & "headers" & Chr(34) & ": [" & Chr(34) & "header1" & Chr(34) & ", " & Chr(34) & "header2" & Chr(34) & ", ...], " & _
+        Chr(34) & "rows" & Chr(34) & ": [[" & Chr(34) & "value1" & Chr(34) & ", " & Chr(34) & "value2" & Chr(34) & ", ...], ...]}]. " & _
+        "Each table in the image must be represented as a separate object in the array." & _
+        "It is MANDATORY that every object contains BOTH a 'headers' array and a 'rows' array. Do NOT return tables without headers or rows." & _
+        "Ensure all column headers are extracted and aligned properly. Do NOT invent data. If no headers are visible, infer logical placeholders like Column1, Column2." & _
+        "Avoid markdown formatting, explanations, or code blocks. Only return raw JSON text." & _
+        "If any column contains a signature field (e.g., 'User Sign', 'Signature', etc.), replace the value in that cell with 'SIGNATURE DETECTED' for each affected row." & _
+        "Before finalizing the response, VERIFY that all rows match the headers in column count and meaning. Fix any misalignments or structural errors." & _
+        "Again, respond with ONLY a valid JSON array with each object containing both 'headers' and 'rows'. No extra output." & _
+        "VERY IMPORTANT: Do not wrap the output in code blocks, triple backticks, or markdown formatting. Return only raw JSON text without any surrounding characters."
 
-   promptText = Replace(promptText, "\", "\\")
-   promptText = Replace(promptText, """", "\""")
-   promptText = Replace(promptText, vbCrLf, "\n")
-   promptText = Replace(promptText, vbLf, "\n")
-   promptText = Replace(promptText, vbCr, "\n")
-   
-   jsonRequest = "{" & _
-       """contents"": [" & _
-           "{" & _
-               """role"": ""user""," & _
-               """parts"": [" & _
-                   "{" & _
-                       """text"": """ & promptText & """" & _
-                   "}," & _
-                   "{" & _
-                       """file_data"": {" & _
-                           """mime_type"": ""image/jpeg""," & _
-                           """file_uri"": """ & fileUri & """" & _
-                       "}" & _
-                   "}" & _
-               "]" & _
-           "}" & _
-       "]" & _
-   "}"
-   
-   CreateGeminiImageRequest = jsonRequest
+    ' Escape for JSON compatibility
+    promptText = Replace(promptText, "\", "\\")
+    promptText = Replace(promptText, """", "\""")
+    promptText = Replace(promptText, vbCrLf, "\n")
+    promptText = Replace(promptText, vbLf, "\n")
+    promptText = Replace(promptText, vbCr, "\n")
+    
+    ' Build JSON request
+    jsonRequest = "{" & _
+        """contents"": [" & _
+            "{" & _
+                """role"": ""user""," & _
+                """parts"": [" & _
+                    "{" & _
+                        """text"": """ & promptText & """" & _
+                    "}," & _
+                    "{" & _
+                        """file_data"": {" & _
+                            """mime_type"": ""image/jpeg""," & _
+                            """file_uri"": """ & fileUri & """" & _
+                        "}" & _
+                    "}" & _
+                "]" & _
+            "}" & _
+        "]" & _
+    "}"
+    
+    CreateGeminiImageRequest = jsonRequest
 End Function
 
 Private Function ParseGeminiResponse(response As String) As String
@@ -501,66 +518,89 @@ Private Function ParseGeminiResponse(response As String) As String
     Dim textStart As Long, textEnd As Long
     Dim searchPattern As String
     searchPattern = """text"": """
-    
-    textStart = InStr(response, searchPattern)
-    
-    If textStart > 0 Then
-        textStart = textStart + Len(searchPattern)
 
-        Dim pos As Long, inEscape As Boolean
-        pos = textStart
-        inEscape = False
-        
-        Do While pos <= Len(response)
-            Dim currentChar As String
-            currentChar = Mid(response, pos, 1)
-            
-            If currentChar = "\" And Not inEscape Then
-                inEscape = True
-            ElseIf currentChar = """" And Not inEscape Then
-                If pos + 1 <= Len(response) Then
-                    Dim nextChars As String
-                    nextChars = Mid(response, pos + 1, 10)
-                    If InStr(nextChars, "}") > 0 Or InStr(nextChars, "]") > 0 Then
-                        textEnd = pos
-                        Exit Do
-                    End If
-                End If
-            Else
-                inEscape = False
-            End If
-            pos = pos + 1
-        Loop
-        
-        If textEnd > textStart Then
-            Dim extractedText As String
-            extractedText = Mid(response, textStart, textEnd - textStart)
-            
-            extractedText = Replace(extractedText, "\n", " ")
-            extractedText = Replace(extractedText, "\r", " ")
-            extractedText = Replace(extractedText, "\t", " ")
-            extractedText = Replace(extractedText, "\""", """")
-            extractedText = Replace(extractedText, "\\", "\")
-            
-            Dim jsonStart As Long, jsonEnd As Long
-            jsonStart = InStr(extractedText, "[")
-            jsonEnd = InStrRev(extractedText, "]")
-            
-            If jsonStart > 0 And jsonEnd > jsonStart Then
-                ParseGeminiResponse = Mid(extractedText, jsonStart, jsonEnd - jsonStart + 1)
-            Else
-                ParseGeminiResponse = extractedText
+    textStart = InStr(response, searchPattern)
+    If textStart = 0 Then
+        ParseGeminiResponse = ""
+        Exit Function
+    End If
+
+    textStart = textStart + Len(searchPattern)
+
+    Dim pos As Long, inEscape As Boolean
+    pos = textStart
+    inEscape = False
+
+    ' Find the closing quote of the "text" field (skipping escaped quotes)
+    Do While pos <= Len(response)
+        Dim currentChar As String
+        currentChar = Mid(response, pos, 1)
+
+        If currentChar = "\" And Not inEscape Then
+            inEscape = True
+        ElseIf currentChar = """" And Not inEscape Then
+            textEnd = pos - 1
+            Exit Do
+        Else
+            inEscape = False
+        End If
+        pos = pos + 1
+    Loop
+
+    If textEnd <= textStart Then
+        ParseGeminiResponse = ""
+        Exit Function
+    End If
+
+    ' Extract and clean the text
+    Dim extractedText As String
+    extractedText = Mid(response, textStart, textEnd - textStart + 1)
+
+    extractedText = Replace(extractedText, "\n", "")
+    extractedText = Replace(extractedText, "\r", "")
+    extractedText = Replace(extractedText, "\t", "")
+    extractedText = Replace(extractedText, "\""", """")
+    extractedText = Replace(extractedText, "\\", "")
+    extractedText = Replace(extractedText, "```json", "")
+    extractedText = Replace(extractedText, "```", "")
+    extractedText = Replace(extractedText, "\", "")
+    extractedText = Replace(extractedText, "\", "/")
+    extractedText = Replace(extractedText, """""", """")
+    extractedText = Trim(extractedText)
+
+
+    ' Now extract individual {...} blocks and rebuild the array
+    Dim jsonOutput As String
+    Dim objectStart As Long, objectEnd As Long
+    Dim depth As Long
+    Dim i As Long
+    Dim insideObject As Boolean
+
+    For i = 1 To Len(extractedText)
+        Dim ch As String
+        ch = Mid(extractedText, i, 1)
+
+        If ch = "{" Then
+            If depth = 0 Then objectStart = i
+            depth = depth + 1
+        ElseIf ch = "}" Then
+            depth = depth - 1
+            If depth = 0 Then
+                objectEnd = i
+                Dim obj As String
+                obj = Mid(extractedText, objectStart, objectEnd - objectStart + 1)
+                If Len(jsonOutput) > 1 Then jsonOutput = jsonOutput & ","
+                jsonOutput = jsonOutput & obj
             End If
         End If
-    Else
-        ParseGeminiResponse = ""
-    End If
-    
-    Exit Function
-    
+    Next i
+
+    ParseGeminiResponse = jsonOutput
+    Exit Sub
+
 ErrorHandler:
     ParseGeminiResponse = ""
-End Function
+End Sub
 
 Private Sub TestParseFromFile(filePath As String)
     Dim fileContent As String
@@ -593,7 +633,7 @@ Private Sub TestParseFromFile(filePath As String)
     End If
 End Sub
 
-Private Sub ParseGeminiTableJSON(jsonString As String, ws As Worksheet)
+Private Sub ParseGeminiTableJSON(JsonString As String, ws As Worksheet)
     On Error GoTo ErrorHandler
     
     Dim currentRow As Long
@@ -604,15 +644,15 @@ Private Sub ParseGeminiTableJSON(jsonString As String, ws As Worksheet)
     
     pos = 1
     
-    Do While pos < Len(jsonString)
-        tableStart = InStr(pos, jsonString, "{")
+    Do While pos < Len(JsonString)
+        tableStart = InStr(pos, JsonString, "{")
         If tableStart = 0 Then Exit Do
 
-        tableEnd = FindObjectEnd(jsonString, tableStart)
+        tableEnd = FindObjectEnd(JsonString, tableStart)
         If tableEnd = 0 Then Exit Do
         
         Dim tableContent As String
-        tableContent = Mid(jsonString, tableStart, tableEnd - tableStart + 1)
+        tableContent = Mid(JsonString, tableStart, tableEnd - tableStart + 1)
 
         Dim headersStart As Long, headersEnd As Long
         headersStart = InStr(tableContent, """headers"":[")
@@ -892,7 +932,7 @@ Private Function FindObjectEnd(text As String, startPos As Long) As Long
     FindObjectEnd = 0
 End Function
 
-Public Sub ParseGeminiTableJSONToSheet(jsonString As String, ws As Worksheet)
+Public Sub ParseGeminiTableJSONToSheet(JsonString As String, ws As Worksheet)
     On Error GoTo ErrorHandler
 
     ws.Cells.Clear
@@ -905,15 +945,15 @@ Public Sub ParseGeminiTableJSONToSheet(jsonString As String, ws As Worksheet)
     
     pos = 1
 
-    Do While pos < Len(jsonString)
-        tableStart = InStr(pos, jsonString, "{")
+    Do While pos < Len(JsonString)
+        tableStart = InStr(pos, JsonString, "{")
         If tableStart = 0 Then Exit Do
 
-        tableEnd = FindObjectEnd(jsonString, tableStart)
+        tableEnd = FindObjectEnd(JsonString, tableStart)
         If tableEnd = 0 Then Exit Do
         
         Dim tableContent As String
-        tableContent = Mid(jsonString, tableStart, tableEnd - tableStart + 1)
+        tableContent = Mid(JsonString, tableStart, tableEnd - tableStart + 1)
 
         Dim headersStart As Long, headersEnd As Long
         headersStart = InStr(tableContent, """headers"":[")
@@ -979,44 +1019,6 @@ Public Sub ParseGeminiTableJSONToSheet(jsonString As String, ws As Worksheet)
     
 ErrorHandler:
     MsgBox "Error parsing Gemini table JSON to sheet: " & Err.Description, vbCritical
-End Sub
-
-Public Sub TestParseMultipleFiles()
-    Dim basePath As String
-    Dim pageNum As Integer
-    Dim filePath As String
-    Dim ws As Worksheet
-    
-    basePath = "C:\Users\talgo\OneDrive\Desktop\output_page_"
-    pageNum = 1
-
-    Do
-        filePath = basePath & pageNum & ".txt"
-        
-        If Dir(filePath) = "" Then Exit Do
-
-        Set ws = GetOrCreateWorksheet("Page_" & pageNum)
-
-        Dim fileContent As String
-        Dim fileNumber As Integer
-        
-        fileNumber = FreeFile
-        Open filePath For Input As #fileNumber
-        fileContent = Input(LOF(fileNumber), fileNumber)
-        Close #fileNumber
-        
-        If fileContent <> "" Then
-            ParseGeminiTableJSONToSheet fileContent, ws
-        End If
-        
-        pageNum = pageNum + 1
-    Loop
-    
-    If pageNum > 1 Then
-        MsgBox "Parsed " & (pageNum - 1) & " files into separate sheets!", vbInformation
-    Else
-        MsgBox "No output files found. Expected files like: " & basePath & "1.txt", vbCritical
-    End If
 End Sub
 
 Private Function GetOrCreateWorksheet(sheetName As String) As Worksheet
@@ -1107,73 +1109,50 @@ ErrorHandler:
     ParseGeminiDataToSeparateSheets = 0
 End Function
 
-Private Sub ParseSingleTableToSheet(tableContent As String, ws As Worksheet)
-    On Error GoTo ErrorHandler
-    
-    ws.Cells.Clear
-    
-    Dim currentRow As Long
-    currentRow = 1
-    
-    Dim headersStart As Long, headersEnd As Long
-    headersStart = InStr(tableContent, """headers"":[")
-    If headersStart = 0 Then headersStart = InStr(tableContent, """headers"": [")
-    
-    Dim searchLen As Long
-    
-    If headersStart > 0 Then
-        searchLen = IIf(InStr(tableContent, """headers"":[") > 0, 12, 13)
-        headersStart = headersStart + searchLen
-        
-        headersEnd = FindArrayEnd(tableContent, headersStart)
-        If headersEnd > headersStart Then
-            Dim headersContent As String
-            headersContent = Mid(tableContent, headersStart, headersEnd - headersStart)
-            
-            Dim headers As Variant
-            headers = ParseJSONStringArray(headersContent)
-            
-            Dim col As Long
-            For col = 0 To UBound(headers)
-                If headers(col) <> "" Then
-                    ws.Cells(currentRow, col + 1).Value = headers(col)
-                Else
-                    ws.Cells(currentRow, col + 1).Value = "Column " & (col + 1)
+Private Sub ParseSingleTableToSheet(tableJson As String, ws As Worksheet)
+    Dim json As Object
+    Set json = JsonConverter.ParseJson(tableJson)
+
+    Dim headers As Collection
+    Dim rows As Collection
+    Set headers = json("headers")
+    Set rows = json("rows")
+
+    Dim col As Integer, rowNum As Integer
+    rowNum = 1
+
+    ' Write headers
+    For col = 1 To headers.Count
+        ws.Cells(rowNum, col).Value = headers(col)
+        ws.Cells(rowNum, col).Font.Bold = True
+    Next col
+
+    ' Write rows
+    Dim r As Variant
+    For Each r In rows
+        rowNum = rowNum + 1
+        Dim containsSignature As Boolean
+        containsSignature = False
+
+        For col = 1 To headers.Count
+            Dim cellVal As Variant
+            If col <= r.Count Then
+                cellVal = r(col)
+                If IsNull(cellVal) Then cellVal = ""
+                ws.Cells(rowNum, col).Value = cellVal
+
+                ' Check for signature marker
+                If LCase(cellVal) = "signature detected" Then
+                    containsSignature = True
                 End If
-                ws.Cells(currentRow, col + 1).Font.Bold = True
-                ws.Cells(currentRow, col + 1).Interior.Color = RGB(220, 220, 220)
-            Next col
-            currentRow = currentRow + 1
+            End If
+        Next col
+
+        ' Highlight row if signature is detected
+        If containsSignature Then
+            ws.Range(ws.Cells(rowNum, 1), ws.Cells(rowNum, headers.Count)).Interior.Color = RGB(198, 239, 206) ' Light green
         End If
-    End If
-    
-    Dim rowsStart As Long, rowsEnd As Long
-    rowsStart = InStr(tableContent, """rows"":[")
-    If rowsStart = 0 Then rowsStart = InStr(tableContent, """rows"": [")
-    
-    If rowsStart > 0 Then
-        searchLen = IIf(InStr(tableContent, """rows"":[") > 0, 9, 10)
-        rowsStart = rowsStart + searchLen
-        
-        rowsEnd = FindArrayEnd(tableContent, rowsStart)
-        If rowsEnd > rowsStart Then
-            Dim rowsContent As String
-            rowsContent = Mid(tableContent, rowsStart, rowsEnd - rowsStart)
-            currentRow = ParseStandardizedTableRows(rowsContent, ws, currentRow)
-        End If
-    End If
-    
-    If currentRow = 1 Then
-        ws.Cells(currentRow, 1).Value = "No table data found in this table object"
-        ws.Cells(currentRow, 1).Font.Italic = True
-    End If
-    
-    ws.Columns.AutoFit
-    
-    Exit Sub
-    
-ErrorHandler:
-    MsgBox "Error parsing single table to sheet: " & Err.Description, vbCritical
+    Next r
 End Sub
 
 Private Sub HighlightSignatureDetectedRow(ws As Worksheet, rowNum As Long)
