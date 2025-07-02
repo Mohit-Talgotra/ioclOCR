@@ -205,7 +205,7 @@ Private Sub ConvertPDFToExcel(imageFolder As String)
 
     LogInfo "Starting ConvertPDFToExcel process"
     
-    apiKey = "AIzaSyDRzpEHgPS7LRqDRmPx-mEXY-Cukyqr-o4"
+    apiKey = "AIzaSyBL4qhaw37bAbrPXOY5mjyl9EW07qVqRE4"
 
     imageFolder = IMAGE_FOLDER
     
@@ -470,19 +470,20 @@ Private Function CreateGeminiImageRequest(fileUri As String) As String
     Dim jsonRequest As String
     Dim promptText As String
 
-    promptText = "Extract all tables from this image. Respond with ONLY a raw JSON array in this EXACT format: " & _
-        "[{" & Chr(34) & "headers" & Chr(34) & ": [" & Chr(34) & "header1" & Chr(34) & ", " & Chr(34) & "header2" & Chr(34) & ", ...], " & _
-        Chr(34) & "rows" & Chr(34) & ": [[" & Chr(34) & "value1" & Chr(34) & ", " & Chr(34) & "value2" & Chr(34) & ", ...], ...]}]. " & _
-        "Each table in the image must be represented as a separate object in the array." & _
-        "It is MANDATORY that every object contains BOTH a 'headers' array and a 'rows' array. Do NOT return tables without headers or rows." & _
-        "Ensure all column headers are extracted and aligned properly. Do NOT invent data. If no headers are visible, infer logical placeholders like Column1, Column2." & _
-        "Avoid markdown formatting, explanations, or code blocks. Only return raw JSON text." & _
-        "If any column contains a signature field (e.g., 'User Sign', 'Signature', etc.), replace the value in that cell with 'SIGNATURE DETECTED' for each affected row." & _
-        "Before finalizing the response, VERIFY that all rows match the headers in column count and meaning. Fix any misalignments or structural errors." & _
-        "Again, respond with ONLY a valid JSON array with each object containing both 'headers' and 'rows'. No extra output." & _
-        "VERY IMPORTANT: Do not wrap the output in code blocks, triple backticks, or markdown formatting. Return only raw JSON text without any surrounding characters."
+    promptText = "You are to extract ALL tables from the provided image and respond with ONLY a valid JSON array in this STRICT format: " & _
+    "[{" & Chr(34) & "headers" & Chr(34) & ": [" & Chr(34) & "header1" & Chr(34) & ", " & Chr(34) & "header2" & Chr(34) & ", ...], " & _
+    Chr(34) & "rows" & Chr(34) & ": [[" & Chr(34) & "value1" & Chr(34) & ", " & Chr(34) & "value2" & Chr(34) & ", ...], ...]}]" & vbCrLf & _
+    "CRITICAL RULES:" & vbCrLf & _
+    "- You MUST return only raw JSON, without any surrounding markdown, text, explanations, code fences, or extra quotation marks." & vbCrLf & _
+    "- Every object in the array must contain BOTH a 'headers' key (array of strings) AND a 'rows' key (array of arrays)." & vbCrLf & _
+    "- Do NOT use extra double quotes around the JSON block or incorrectly escape characters." & vbCrLf & _
+    "- Validate your output is strict JSON and parseable — NO syntax errors, mismatched brackets, or trailing commas." & vbCrLf & _
+    "- If headers are missing in the image, generate logical placeholders like 'Column1', 'Column2', etc." & vbCrLf & _
+    "- If any cell represents a signature (e.g., column header is 'Signature' or 'User Sign'), replace that cell's value with 'SIGNATURE DETECTED'." & vbCrLf & _
+    "- Ensure all rows align to the same number of columns as the headers — fix any column mismatch before responding." & vbCrLf & _
+    "FINAL WARNING: Respond with ONLY a raw JSON array conforming to the format above. Do NOT add text before or after it. No markdown. No explanations. Just JSON."
 
-    ' Escape for JSON compatibility
+    ' Escape for JSON payload
     promptText = Replace(promptText, "\", "\\")
     promptText = Replace(promptText, """", "\""")
     promptText = Replace(promptText, vbCrLf, "\n")
@@ -508,6 +509,8 @@ Private Function CreateGeminiImageRequest(fileUri As String) As String
             "}" & _
         "]" & _
     "}"
+    
+    Call SavePromptToFile(jsonRequest)
     
     CreateGeminiImageRequest = jsonRequest
 End Function
@@ -565,7 +568,7 @@ Private Function ParseGeminiResponse(response As String) As String
     extractedText = Replace(extractedText, "```", "")
     extractedText = Replace(extractedText, "\", "")
     extractedText = Replace(extractedText, "\", "/")
-    extractedText = Replace(extractedText, """""", """")
+    ' extractedText = Replace(extractedText, """""", """")
     extractedText = Trim(extractedText)
 
 
@@ -596,11 +599,11 @@ Private Function ParseGeminiResponse(response As String) As String
     Next i
 
     ParseGeminiResponse = jsonOutput
-    Exit Sub
+    Exit Function
 
 ErrorHandler:
     ParseGeminiResponse = ""
-End Sub
+End Function
 
 Private Sub TestParseFromFile(filePath As String)
     Dim fileContent As String
@@ -1062,50 +1065,65 @@ End Function
 
 Private Function ParseGeminiDataToSeparateSheets(jsonData As String) As Integer
     On Error GoTo ErrorHandler
-    
+
     Dim tableCount As Integer
     tableCount = 0
-    
+
     Dim tableStart As Long, tableEnd As Long
     Dim pos As Long
-    
-    LogInfo "Starting ParseGeminiDataToSeparateSheets"
-    
     pos = 1
-    
+
+    LogInfo "Starting ParseGeminiDataToSeparateSheets"
+
     Do While pos < Len(jsonData)
         tableStart = InStr(pos, jsonData, "{")
         If tableStart = 0 Then Exit Do
 
         tableEnd = FindObjectEnd(jsonData, tableStart)
         If tableEnd = 0 Then Exit Do
-        
+
         Dim tableContent As String
         tableContent = Mid(jsonData, tableStart, tableEnd - tableStart + 1)
 
+        On Error GoTo TableErrorHandler
         tableCount = tableCount + 1
-        LogInfo "Page " & tableCount & " converted to Excel sheet"
+        LogInfo "Parsing table " & tableCount
+
         Dim ws As Worksheet
         Set ws = GetOrCreateWorksheet("Table_" & tableCount)
 
-        ParseSingleTableToSheet tableContent, ws
+        Call ParseSingleTableToSheet(tableContent, ws)
 
+        ' Reset error handler on success
+        On Error GoTo ErrorHandler
+
+        ' Update position to continue
         pos = tableEnd + 1
+        GoTo NextTable
+
+TableErrorHandler:
+        LogError "? Failed to parse table at position " & tableStart & ": " & Err.Description
+        tableCount = tableCount - 1 ' don’t count failed table
+        On Error GoTo ErrorHandler
+        pos = tableEnd + 1 ' skip past bad block
+        GoTo NextTable
+
+NextTable:
     Loop
 
     If tableCount = 0 Then
         Set ws = GetOrCreateWorksheet("No_Data")
-        ws.Cells(1, 1).Value = "No table data found in the response"
+        ws.Cells(1, 1).Value = "No table data found or all tables failed to parse"
         ws.Cells(1, 1).Font.Italic = True
         tableCount = 1
     End If
-    
+
     ParseGeminiDataToSeparateSheets = tableCount
     Exit Function
-    
+
 ErrorHandler:
-    LogError "Error parsing Gemini data to separate sheets: " & Err.Description
-    MsgBox "Error parsing Gemini data to separate sheets: " & Err.Description, vbCritical
+    LogError "Unexpected error parsing Gemini JSON data: " & Err.Description
+    MsgBox "Critical error: " & Err.Description, vbCritical
     ParseGeminiDataToSeparateSheets = 0
 End Function
 
@@ -1173,4 +1191,18 @@ Private Sub HighlightSignatureDetectedRow(ws As Worksheet, rowNum As Long)
 
     Next col
 
+End Sub
+
+Private Sub SavePromptToFile(promptText As String)
+    Dim fNum As Integer
+    Dim promptPath As String
+
+    promptPath = ThisWorkbook.Path & "\prompt_log.txt"
+    fNum = FreeFile
+
+    Open promptPath For Output As #fNum
+    Print #fNum, promptText
+    Close #fNum
+
+    LogInfo "Prompt written to: " & promptPath
 End Sub
