@@ -324,4 +324,4 @@ if __name__ == '__main__':
     cleanup_thread.start()
     debug = os.environ.get('FLASK_ENV') == 'development'
     
-    app.run(debug=debug)
+    app.run(host='0.0.0.0', debug=debug)
