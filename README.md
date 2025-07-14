@@ -1,4 +1,3 @@
-```markdown
 # 📄 PDF to Excel Converter
 
 This repository offers two complementary tools to convert PDFs to structured Excel files:
@@ -10,7 +9,6 @@ This repository offers two complementary tools to convert PDFs to structured Exc
 
 ## 📁 Project Structure
 
-```
 .
 ├── addin/                   # Excel VBA Add-in with custom ribbon
 │   ├── modules/             # Placeholder for future modules
@@ -40,7 +38,6 @@ This repository offers two complementary tools to convert PDFs to structured Exc
 ├── .env                     # Environment variables
 ├── requirements.txt         # Python dependencies
 └── README.md
-```
 
 ---
 
