@@ -7,40 +7,6 @@ This repository offers two complementary tools to convert PDFs to structured Exc
 
 ---
 
-## 📁 Project Structure
-
-.
-├── addin/                   # Excel VBA Add-in with custom ribbon
-│   ├── modules/             # Placeholder for future modules
-│   └── ribbon/
-│       ├── addin.xml        # Ribbon customization
-│       └── PDF2Excel_Final.xlam # Add-in file for Excel
-│
-├── app/                     # Flask web app to serve the OCR frontend
-│   ├── static/              # Static assets (CSS/JS)
-│   ├── templates/           # HTML templates
-│   ├── __init__.py
-│   ├── app.py               # Main app entry
-│   └── app2.py              # Alternate entry (for testing/multi-version support)
-│
-├── src/
-│   └── geminiOCR/           # Core OCR processing logic
-│       ├── json_to_excel.py
-│       ├── main.py
-│       ├── pdf_to_excel_pipeline.py
-│       ├── pdf_to_json.py
-│       └── trials/          # Experimental/test scripts
-│
-├── uploads/                 # Uploaded files (PDFs/images)
-├── output/                  # Processed output (JSON/Excel)
-├── processing/              # Intermediate steps/data
-├── testing/                 # Testing scripts or sample data
-├── .env                     # Environment variables
-├── requirements.txt         # Python dependencies
-└── README.md
-
----
-
 ## 🔧 Excel VBA Add-In
 
 ### 📌 Overview
