@@ -1,84 +1,165 @@
-# PDF to Excel Converter (VBA)
+```markdown
+# 📄 PDF to Excel Converter
 
-This project is a *VBA-based automation script* that parses structured data from a JSON (converted from PDF) and writes it into Excel in an organized format.
+This repository offers two complementary tools to convert PDFs to structured Excel files:
 
-⚠ *Note:* This project assumes that the PDF has already been converted into a structured JSON format using external tools (e.g., OCR + layout parser).
+1. **🔧 Excel VBA Add-in** for parsing structured JSON and writing to Excel.  
+2. **🌐 Web-based OCR Pipeline** for converting scanned PDFs/images into structured JSON using OCR.
 
 ---
 
 ## 📁 Project Structure
 
-- pdf2excel.bas: Core VBA module that reads and parses JSON into Excel.
-- data.json: (Expected) Input JSON file containing extracted data from the PDF.
-- Workbook.xlsm: Excel macro-enabled workbook that runs the conversion script.
+```
+.
+├── addin/                   # Excel VBA Add-in with custom ribbon
+│   ├── modules/             # Placeholder for future modules
+│   └── ribbon/
+│       ├── addin.xml        # Ribbon customization
+│       └── PDF2Excel_Final.xlam # Add-in file for Excel
+│
+├── app/                     # Flask web app to serve the OCR frontend
+│   ├── static/              # Static assets (CSS/JS)
+│   ├── templates/           # HTML templates
+│   ├── __init__.py
+│   ├── app.py               # Main app entry
+│   └── app2.py              # Alternate entry (for testing/multi-version support)
+│
+├── src/
+│   └── geminiOCR/           # Core OCR processing logic
+│       ├── json_to_excel.py
+│       ├── main.py
+│       ├── pdf_to_excel_pipeline.py
+│       ├── pdf_to_json.py
+│       └── trials/          # Experimental/test scripts
+│
+├── uploads/                 # Uploaded files (PDFs/images)
+├── output/                  # Processed output (JSON/Excel)
+├── processing/              # Intermediate steps/data
+├── testing/                 # Testing scripts or sample data
+├── .env                     # Environment variables
+├── requirements.txt         # Python dependencies
+└── README.md
+```
 
 ---
 
-## ✅ Features
+## 🔧 Excel VBA Add-In
 
-- Reads structured JSON data exported from scanned PDFs.
-- Handles nested objects like pages, tables, and cells.
-- Writes table content into Excel in row-wise format.
-- Designed for batch or large document processing.
-- Optimized for performance with screen updating/calculation toggles.
+### 📌 Overview
+
+This add-in parses structured JSON files (output from OCR pipeline) and writes them into Excel in a tabular format. Ideal for large documents and batch processing.
+
+### ✅ Features
+
+- Ribbon integration for one-click conversion.
+- Supports nested structures: pages, tables, cells.
+- Optimized for large documents (~150 pages).
+- No dependencies outside Excel (VBA + [VBA-JSON](https://github.com/VBA-tools/VBA-JSON)).
+
+### 🚀 How to Use
+
+1. **Install the Add-In:**
+   - Open Excel → File → Options → Add-ins → Manage: Excel Add-ins → Browse → Select `PDF2Excel_Final.xlam`.
+
+2. **Enable the Custom Ribbon:**
+   - Ribbon appears with a button to run the macro.
+
+3. **Run Macro:**
+   - Macro reads `data.json` and populates Excel.
+
+> 💡 Ensure `data.json` is in the same folder as the workbook.
 
 ---
 
-## 🛠 How It Works
+## 🌐 Web-Based OCR Pipeline (Flask + Python)
 
-1. Use external tools to:
-   - Convert the PDF to image/text.
-   - Run OCR and layout detection.
-   - Export the results as JSON (structured with pages and tables).
+### 📌 Overview
 
-2. Open Workbook.xlsm in Excel.
+This is the backend that extracts structured content (tables, text) from PDFs/images using OCR + layout parsing.
 
-3. Import the pdf2excel.bas module into the VBA editor:
-   - Press ALT + F11 → File → Import File → Select pdf2excel.bas.
+### ✅ Features
 
-4. Run the macro:
-   - Press ALT + F8 → Select ParsePDFJsonToExcel → Click Run.
+- PDF/Image upload via web interface.
+- OCR and layout parsing using Gemini or similar pipelines.
+- Outputs JSON for downstream processing (like the Excel macro).
+- Modular and extensible.
+
+### 🛠 How to Run
+
+1. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Run the web app:
+
+   ```bash
+   cd app
+   python app.py
+   ```
+
+3. Upload a scanned PDF/image.
+
+4. View/download the extracted JSON and Excel files.
 
 ---
 
-## ⚡ Performance Optimizations
+## 🔄 Flow Diagram
 
-- Screen updating and Excel recalculation are temporarily disabled for faster execution.
-- Avoids repetitive cell writes by using sequential indexing.
-- Designed for ~150-page JSON files (batch processing supported).
+```
+[PDF/Image] 
+     ↓ (OCR + Layout Parsing)
+[Structured JSON] 
+     ↓ (Excel Add-in)
+[Excel Table Output]
+```
+
+---
+
+## ⚡ Performance Tips
+
+- Excel macro disables screen updating and auto-calculation during runtime.
+- Sequential writing avoids slow cell-by-cell operations.
+- OCR pipeline uses intermediate caching (in `processing/` folder).
 
 ---
 
 ## 📝 Prerequisites
 
-- Windows Excel with macros enabled (.xlsm support).
-- A structured data.json file placed in the same folder as the workbook.
-- JSON parser module included (e.g., [VBA-JSON](https://github.com/VBA-tools/VBA-JSON)).
+| Component    | Requirement                                  |
+|--------------|----------------------------------------------|
+| Excel        | Windows with macro support (.xlsm or .xlam)  |
+| Python       | ≥ 3.7                                         |
+| OCR backend  | Tesseract, EasyOCR, or Gemini-based module   |
+| Browser      | For accessing Flask interface                |
 
 ---
 
-## 🔄 Future Improvements
+## 🔮 Future Enhancements
 
-- Add GUI for selecting JSON file.
-- Add support for image extraction.
-- Auto-detect and create new sheets per table or section.
-- Handle edge cases like merged cells or rotated text.
+- GUI in Excel for JSON file selection.
+- Auto-sheet generation for multiple tables.
+- Support for rotated text and merged cells.
+- Role-based dashboard for uploads/results.
 
 ---
 
 ## 🧠 Credits
 
-- Developed using native VBA and Excel features.
-- JSON parsing powered by the open-source [VBA-JSON](https://github.com/VBA-tools/VBA-JSON) library.
+- **VBA Parser**: Built using native VBA and [VBA-JSON](https://github.com/VBA-tools/VBA-JSON).
+- **OCR Pipeline**: Modular architecture inspired by Gemini/Pix2Text layout parsers.
 
 ---
 
 ## 📜 License
 
-MIT License – free to use, modify, and distribute with attribution.
+MIT License – Free to use, modify, and distribute with proper attribution.
 
 ---
 
 ## 📧 Contact
 
-For questions, suggestions, or contributions, feel free to reach out via GitHub Issues or email.
+For support, bugs, or feature requests, open an issue or reach out via email/GitHub.
+```
